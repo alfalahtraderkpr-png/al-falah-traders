@@ -24,7 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
   LayoutDashboard, FilePlus, Table2, BarChart3, Settings, LogOut, Building2,
-  Sun, Moon, Clock, ChevronRight, Users, Database, Activity, Wallet,
+  Sun, Moon, Clock, ChevronRight, Users, Database, Activity, Wallet, CalendarDays,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,14 +34,16 @@ import EntriesTable from '@/components/entries-table';
 import ReportsPage from '@/components/reports-page';
 import SettingsPage from '@/components/settings-page';
 import BalancesPage from '@/components/balances-page';
+import DailySummaryPage from '@/components/daily-summary-page';
 
-type Page = 'dashboard' | 'new-entry' | 'entries' | 'balances' | 'reports' | 'settings';
+type Page = 'dashboard' | 'new-entry' | 'entries' | 'balances' | 'daily-summary' | 'reports' | 'settings';
 
 const navItems: { id: Page; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPIs' },
   { id: 'new-entry', label: 'New Entry', icon: FilePlus, description: 'Add daily data' },
   { id: 'entries', label: 'Entries', icon: Table2, description: 'View & manage' },
   { id: 'balances', label: 'Balances', icon: Wallet, description: 'Outstanding dues' },
+  { id: 'daily-summary', label: 'Daily Summary', icon: CalendarDays, description: 'Day-wise totals' },
   { id: 'reports', label: 'Reports', icon: BarChart3, description: 'Analysis & trends' },
   { id: 'settings', label: 'Settings', icon: Settings, description: 'Manage OBs & Cos' },
 ];
@@ -94,10 +96,11 @@ export default function AppShell() {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard': return <DashboardPage />;
+      case 'dashboard': return <DashboardPage onNavigate={(page) => setActivePage(page as Page)} />;
       case 'new-entry': return <EntryForm />;
       case 'entries': return <EntriesTable />;
       case 'balances': return <BalancesPage />;
+      case 'daily-summary': return <DailySummaryPage />;
       case 'reports': return <ReportsPage />;
       case 'settings': return <SettingsPage />;
       default: return <DashboardPage />;

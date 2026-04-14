@@ -13,7 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   TrendingUp, TrendingDown, DollarSign, AlertTriangle, BarChart3, PieChart as PieChartIcon,
   CalendarIcon, RefreshCw, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Percent,
-  Plus, X, Trophy, AlertCircle, ArrowRight, CheckCircle2,
+  Plus, X, Trophy, AlertCircle, ArrowRight, CheckCircle2, Clock, Table2,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -22,6 +22,7 @@ import {
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import EntryForm from '@/components/entry-form';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface DashboardAPIResponse {
   summary: {
@@ -73,9 +74,25 @@ function formatCompact(value: number): string {
   return value.toString();
 }
 
-export default function DashboardPage() {
+interface RecentEntry {
+  id: string;
+  date: string;
+  orderBookerName: string;
+  companyName: string;
+  summaryAmount: number;
+  cashReceived: number;
+  creditPosted: number;
+  closingBalance: number;
+}
+
+interface DashboardPageProps {
+  onNavigate?: (page: string) => void;
+}
+
+export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   const [data, setData] = useState<DashboardAPIResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentEntries, setRecentEntries] = useState<RecentEntry[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const now = new Date();
     return { from: startOfMonth(now), to: now };
@@ -91,6 +108,20 @@ export default function DashboardPage() {
 
   // MoM comparison data
   const [lastMonthData, setLastMonthData] = useState<{ totalSales: number; totalRecovery: number; totalCredit: number } | null>(null);
+
+  // Fetch recent entries
+  useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const res = await fetch('/api/entries');
+        if (res.ok) {
+          const json = await res.json();
+          setRecentEntries((json.entries || []).slice(0, 10));
+        }
+      } catch { /* silent */ }
+    };
+    fetchRecent();
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -695,6 +726,125 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Activity Log */}
+      {!loading && (
+        <Card className="card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Recent Activity
+              </CardTitle>
+              {onNavigate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
+                  onClick={() => onNavigate('entries')}
+                >
+                  View All <ArrowRight className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {recentEntries.length === 0 ? (
+              <div className="py-8 flex flex-col items-center justify-center text-muted-foreground">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mb-3">
+                  <Table2 className="w-8 h-8 text-emerald-300 dark:text-emerald-700" />
+                </div>
+                <p className="text-sm font-medium">No entries yet</p>
+                <p className="text-xs mt-1 text-muted-foreground">Start by adding your first daily entry</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-1.5 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                  onClick={() => setQuickEntryOpen(true)}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Entry
+                </Button>
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                <Table className="table-enhanced">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-[10px]">Date</TableHead>
+                      <TableHead className="text-[10px]">OB Name</TableHead>
+                      <TableHead className="text-[10px]">Company</TableHead>
+                      <TableHead className="text-right text-[10px]">Sales</TableHead>
+                      <TableHead className="text-right text-[10px]">Cash</TableHead>
+                      <TableHead className="text-right text-[10px]">Credit</TableHead>
+                      <TableHead className="text-right text-[10px]">Closing</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentEntries.map((entry) => (
+                      <TableRow key={entry.id} className="transition-all duration-200">
+                        <TableCell className="whitespace-nowrap text-xs font-medium">
+                          {(() => { try { return format(new Date(entry.date), 'MMM dd'); } catch { return String(entry.date); } })()}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[8px] font-bold text-white shrink-0">
+                              {entry.orderBookerName?.charAt(0) || '?'}
+                            </div>
+                            <span className="truncate max-w-[80px]">{entry.orderBookerName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground truncate max-w-[80px]">{entry.companyName}</TableCell>
+                        <TableCell className="text-right font-mono text-[10px]">{entry.summaryAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-[10px] text-emerald-600 dark:text-emerald-400">{entry.cashReceived.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-[10px]">{entry.creditPosted.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge
+                            variant={entry.closingBalance > 0 ? 'destructive' : 'default'}
+                            className={`text-[9px] px-1 py-0 h-3.5 font-mono ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
+                          >
+                            {entry.closingBalance.toLocaleString()}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dashboard Empty State */}
+      {!loading && !data?.summary?.entryCount && (
+        <Card className="animate-fade-in-up border-emerald-200/50 dark:border-emerald-800/50">
+          <CardContent className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 flex items-center justify-center mb-4">
+              <BarChart3 className="w-10 h-10 text-emerald-300 dark:text-emerald-700" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">No data for this period</h3>
+            <p className="text-sm text-muted-foreground mb-4">Add entries to see your dashboard come alive with insights</p>
+            <div className="flex items-center gap-3">
+              <Button
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => setQuickEntryOpen(true)}
+              >
+                <Plus className="w-4 h-4" /> Add Entry
+              </Button>
+              {onNavigate && (
+                <Button
+                  variant="outline"
+                  className="gap-1.5 border-emerald-200 dark:border-emerald-800"
+                  onClick={() => onNavigate('entries')}
+                >
+                  <Table2 className="w-4 h-4" /> View Entries
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Entry FAB */}
       <button
