@@ -249,7 +249,78 @@ Stage Summary:
 
 ### Priority Recommendations for Next Phase
 1. Add PDF export for reports using window.print()
-2. Add data backup/restore functionality
+2. ~~Add data backup/restore functionality~~ ✅ Done (Task 2-a)
 3. Implement auto-refresh for dashboard data
 4. Add more chart types (area charts, stacked bars)
 5. Consider adding a mobile-responsive bottom navigation
+
+---
+Task ID: 2-a
+Agent: Subagent (backup-restore-feature)
+Task: Create Data Backup/Restore Feature
+
+Work Log:
+- Created /api/backup/route.ts with GET (export) and POST (import) handlers:
+  - GET /api/backup: Checks auth session, exports all OrderBookers, Companies, DailyEntries, BalanceHistory as JSON with version and exportDate metadata
+  - POST /api/backup: Checks auth session, validates backup structure (version, data, arrays), uses Prisma transaction to atomically delete existing data and import backup data
+  - Import order: Delete entries/balances first, then OBs/companies, then create companies, OBs, entries, balance history (respecting foreign key constraints)
+- Updated settings-page.tsx with new "Backup" tab (4th tab):
+  - Export Data section: Download button with Loader2 spinner, triggers GET /api/backup, saves as alfalah-backup-YYYY-MM-DD.json
+  - Import Data section: Upload button opens import dialog
+  - Warning notice about data replacement
+  - Stats display showing current data counts
+  - Tip section about regular backups
+- Import Dialog features:
+  - File picker accepting .json files
+  - Real-time preview of backup file contents (OB count, companies, entries, balances, export date)
+  - Warning about data replacement
+  - Double confirmation via AlertDialog before proceeding
+  - Progress indicator (Loader2 spinner) during import
+  - Success/error toast notifications via sonner
+  - Auto-refreshes OB/company lists after successful import
+- Added new icons: Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson
+- All styling matches existing emerald/green theme with glass-card, card-hover, animate-fade-in-up classes
+- No existing functionality removed
+
+Stage Summary:
+- Backup export: Full database export as downloadable JSON file
+- Backup import: File picker with preview, validation, double confirmation, atomic transaction restore
+- Settings page now has 4 tabs: Order Bookers, Companies, System, Backup
+- Lint passes cleanly with no errors
+
+---
+Task ID: 2-b
+Agent: Subagent (notification-alert-system)
+Task: Add Notification/Alert System
+
+Work Log:
+- Created /api/notifications/route.ts - GET endpoint that generates dynamic notifications:
+  - Overdue Balances: OBs with closing balance > 0 and no entries in 3+ days (severity: critical)
+  - High Outstanding: OB+Company combinations with outstanding > 50,000 PKR (severity: warning)
+  - Low Recovery Rate: OBs with overall recovery rate < 40% (severity: critical)
+  - No Recent Entries: OBs that haven't submitted entries in the last 2 days (severity: warning)
+  - Monthly Target: Current month recovery rate below 60% (severity: warning)
+  - Notifications sorted by severity (critical first)
+  - Auth check via getSession() from @/lib/auth
+- Created /components/notification-bell.tsx - Client component with:
+  - Bell icon with animated badge count (red gradient for unread count, capped at 9+)
+  - Popover dropdown (shadcn/ui Popover) showing notification list
+  - Color-coded icons per severity (red=critical, amber=warning, blue=info)
+  - Each notification shows: icon, title, message, relative time, related OB badge
+  - Mark all read button (CheckCheck icon)
+  - Clear all button (Trash2 icon)
+  - ScrollArea with max-h-96 for many notifications
+  - Empty state with "All caught up!" message
+  - Loading spinner state
+  - Auto-refresh every 60 seconds via setInterval
+  - Emerald/green theme matching existing app styling
+- Updated /components/app-shell.tsx:
+  - Added import for NotificationBell component
+  - Placed NotificationBell in header between theme toggle and logout button
+  - No existing functionality removed
+
+Stage Summary:
+- Notification API generates 5 types of dynamic alerts based on live data
+- NotificationBell component with popover, badge count, mark-read, clear-all, auto-refresh
+- Integrated into app header with emerald theme consistency
+- All lint checks pass cleanly

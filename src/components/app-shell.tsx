@@ -35,6 +35,7 @@ import ReportsPage from '@/components/reports-page';
 import SettingsPage from '@/components/settings-page';
 import BalancesPage from '@/components/balances-page';
 import DailySummaryPage from '@/components/daily-summary-page';
+import NotificationBell from '@/components/notification-bell';
 
 type Page = 'dashboard' | 'new-entry' | 'entries' | 'balances' | 'daily-summary' | 'reports' | 'settings';
 
@@ -247,6 +248,7 @@ export default function AppShell() {
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-600" />}
               </Button>
+              <NotificationBell />
               <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Logout</span>
@@ -255,12 +257,12 @@ export default function AppShell() {
           </div>
         </header>
 
-        <div className="flex-1 animate-page-enter" key={activePage}>
+        <div className="flex-1 animate-page-enter pb-16 md:pb-0" key={activePage}>
           {renderPage()}
         </div>
 
         {/* Enhanced Footer */}
-        <footer className="border-t bg-gradient-to-r from-emerald-50/80 via-card to-emerald-50/80 dark:from-emerald-950/20 dark:via-card dark:to-emerald-950/20 py-3 px-4 no-print">
+        <footer className="border-t bg-gradient-to-r from-emerald-50/80 via-card to-emerald-50/80 dark:from-emerald-950/20 dark:via-card dark:to-emerald-950/20 py-3 px-4 no-print hidden md:block">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-600 to-emerald-500 flex items-center justify-center text-white shrink-0">
@@ -287,6 +289,35 @@ export default function AppShell() {
           </div>
         </footer>
       </SidebarInset>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-emerald-200/50 dark:border-emerald-800/50 safe-area-bottom no-print">
+        <div className="grid grid-cols-5 gap-0.5 px-1 py-1">
+          {[
+            { id: 'dashboard' as Page, label: 'Home', icon: LayoutDashboard },
+            { id: 'new-entry' as Page, label: 'Add', icon: FilePlus },
+            { id: 'entries' as Page, label: 'Entries', icon: Table2 },
+            { id: 'balances' as Page, label: 'Dues', icon: Wallet },
+            { id: 'reports' as Page, label: 'Reports', icon: BarChart3 },
+          ].map((item) => {
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActivePage(item.id)}
+                className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
+              >
+                <item.icon className="w-4.5 h-4.5" />
+                <span className="text-[10px] font-medium mt-0.5">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </SidebarProvider>
   );
 }

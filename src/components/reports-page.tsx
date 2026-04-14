@@ -11,8 +11,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles } from 'lucide-react';
+import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles, CalendarIcon, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, startOfMonth } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface OrderBooker { id: string; name: string; }
 interface Company { id: string; name: string; category?: string; }
@@ -36,6 +40,20 @@ export default function ReportsPage() {
   const [obLoading, setOBLoading] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
   const [trendLoading, setTrendLoading] = useState(false);
+
+  // Date range filter
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const now = new Date();
+    return { from: startOfMonth(now), to: now };
+  });
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const getDateParams = () => {
+    const params: string[] = [];
+    if (dateRange?.from) params.push(`dateFrom=${format(dateRange.from, 'yyyy-MM-dd')}`);
+    if (dateRange?.to) params.push(`dateTo=${format(dateRange.to, 'yyyy-MM-dd')}`);
+    return params.length > 0 ? `&${params.join('&')}` : '';
+  };
 
   useEffect(() => {
     const fetchRefs = async () => {
@@ -63,7 +81,7 @@ export default function ReportsPage() {
     if (!selectedOB) return;
     setOBLoading(true);
     try {
-      const res = await fetch(`/api/reports?type=ob-analysis&orderBookerId=${selectedOB}`);
+      const res = await fetch(`/api/reports?type=ob-analysis&orderBookerId=${selectedOB}${getDateParams()}`);
       if (res.ok) {
         setOBData(await res.json());
       } else {
@@ -72,13 +90,13 @@ export default function ReportsPage() {
     } catch {
       setOBData(null);
     } finally { setOBLoading(false); }
-  }, [selectedOB]);
+  }, [selectedOB, dateRange]);
 
   const fetchCompanyAnalysis = useCallback(async () => {
     if (!selectedCompany) return;
     setCompanyLoading(true);
     try {
-      const res = await fetch(`/api/reports?type=company-analysis&companyId=${selectedCompany}`);
+      const res = await fetch(`/api/reports?type=company-analysis&companyId=${selectedCompany}${getDateParams()}`);
       if (res.ok) {
         setCompanyData(await res.json());
       } else {
@@ -87,12 +105,12 @@ export default function ReportsPage() {
     } catch {
       setCompanyData(null);
     } finally { setCompanyLoading(false); }
-  }, [selectedCompany]);
+  }, [selectedCompany, dateRange]);
 
   const fetchTrendAnalysis = useCallback(async () => {
     setTrendLoading(true);
     try {
-      const res = await fetch('/api/reports?type=trend');
+      const res = await fetch(`/api/reports?type=trend${getDateParams()}`);
       if (res.ok) {
         setTrendData(await res.json());
       } else {
@@ -101,16 +119,17 @@ export default function ReportsPage() {
     } catch {
       setTrendData(null);
     } finally { setTrendLoading(false); }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => { fetchOBAnalysis(); }, [fetchOBAnalysis]);
   useEffect(() => { fetchCompanyAnalysis(); }, [fetchCompanyAnalysis]);
 
   useEffect(() => {
-    if (activeTab === 'trend' && !trendData && !trendLoading) {
+    if (activeTab === 'trend') {
+      setTrendData(null);
       fetchTrendAnalysis();
     }
-  }, [activeTab, trendData, trendLoading, fetchTrendAnalysis]);
+  }, [activeTab, fetchTrendAnalysis]);
 
   const obChartConfig = { totalSales: { label: 'Sales', color: '#059669' }, totalRecovery: { label: 'Recovery', color: '#0284c7' } };
   const companyBarConfig = { totalSales: { label: 'Sales', color: '#059669' }, totalRecovery: { label: 'Recovery', color: '#0284c7' } };
@@ -195,10 +214,53 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">Reports & Analysis</h1>
           <p className="text-muted-foreground text-sm">Detailed analysis and performance insights</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800" onClick={handlePrint}>
-          <Printer className="w-3.5 h-3.5" />
-          Print Report
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2 text-xs h-9 border-emerald-200 dark:border-emerald-800">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>{format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd')}</>
+                  ) : (
+                    format(dateRange.from, 'MMM dd, yyyy')
+                  )
+                ) : (
+                  'Pick a date range'
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={(range) => {
+                  setDateRange(range);
+                  if (range?.to) setCalendarOpen(false);
+                }}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 border-emerald-200 dark:border-emerald-800 text-xs"
+            onClick={() => {
+              const now = new Date();
+              setDateRange({ from: startOfMonth(now), to: now });
+            }}
+          >
+            <RotateCcw className="w-3 h-3" />
+            This Month
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800" onClick={handlePrint}>
+            <Printer className="w-3.5 h-3.5" />
+            Print
+          </Button>
+        </div>
       </div>
 
       {/* Summary Banner */}

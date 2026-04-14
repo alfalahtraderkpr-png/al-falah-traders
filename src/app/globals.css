@@ -624,3 +624,35 @@ input[type="number"] {
 .badge-animated:hover {
   transform: scale(1.05);
 }
+
+/* Mobile bottom navigation safe area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Smooth scrollbar for all scrollable areas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.70 0.03 155) transparent;
+}
+.dark * {
+  scrollbar-color: oklch(0.40 0.03 155) transparent;
+}
+
+/* Better shimmer with gradient */
+.shimmer {
+  background: linear-gradient(90deg,
+    oklch(0.93 0.01 155) 25%,
+    oklch(0.88 0.02 155) 50%,
+    oklch(0.93 0.01 155) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.dark .shimmer {
+  background: linear-gradient(90deg,
+    oklch(0.22 0.02 155) 25%,
+    oklch(0.28 0.02 155) 50%,
+    oklch(0.22 0.02 155) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
