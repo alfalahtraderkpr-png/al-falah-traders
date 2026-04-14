@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderBooker {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  phone     String?
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  entries   DailyEntry[]
+  balances  BalanceHistory[]
+}
+
+model Company {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  category  String?
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  entries   DailyEntry[]
+  balances  BalanceHistory[]
+}
+
+model DailyEntry {
+  id              String   @id @default(cuid())
+  date            DateTime
+  orderBookerId   String
+  companyId       String
+  openingBalance  Float    @default(0)
+  summaryAmount   Float    @default(0)
+  stockReturn     Float    @default(0)
+  postedSummary   Float    @default(0)
+  cashReceived    Float    @default(0)
+  creditPosted    Float    @default(0)
+  oldRecovery     Float    @default(0)
+  closingBalance  Float    @default(0)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orderBooker OrderBooker @relation(fields: [orderBookerId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  @@unique([date, orderBookerId, companyId])
+}
+
+model BalanceHistory {
+  id              String   @id @default(cuid())
+  date            DateTime
+  orderBookerId   String
+  companyId       String
+  closingBalance  Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  orderBooker OrderBooker @relation(fields: [orderBookerId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  @@unique([date, orderBookerId, companyId])
+}
