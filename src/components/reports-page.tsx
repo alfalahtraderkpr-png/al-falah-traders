@@ -24,6 +24,7 @@ export default function ReportsPage() {
 
   const [selectedOB, setSelectedOB] = useState<string>('');
   const [selectedCompany, setSelectedCompany] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('ob');
 
   const [obData, setOBData] = useState<Record<string, unknown> | null>(null);
   const [companyData, setCompanyData] = useState<Record<string, unknown> | null>(null);
@@ -40,9 +41,17 @@ export default function ReportsPage() {
           fetch('/api/order-bookers'),
           fetch('/api/companies'),
         ]);
-        if (obRes.ok) setOrderBookers(await obRes.json());
-        if (coRes.ok) setCompanies(await coRes.json());
-      } catch { /* silent */ }
+        if (obRes.ok) {
+          const obJson = await obRes.json();
+          setOrderBookers(obJson.orderBookers || []);
+        }
+        if (coRes.ok) {
+          const coJson = await coRes.json();
+          setCompanies(coJson.companies || []);
+        }
+      } catch {
+        // silent - will show empty dropdowns
+      }
     };
     fetchRefs();
   }, []);
@@ -52,9 +61,14 @@ export default function ReportsPage() {
     setOBLoading(true);
     try {
       const res = await fetch(`/api/reports?type=ob-analysis&orderBookerId=${selectedOB}`);
-      if (res.ok) setOBData(await res.json());
-    } catch { /* silent */ }
-    finally { setOBLoading(false); }
+      if (res.ok) {
+        setOBData(await res.json());
+      } else {
+        setOBData(null);
+      }
+    } catch {
+      setOBData(null);
+    } finally { setOBLoading(false); }
   }, [selectedOB]);
 
   const fetchCompanyAnalysis = useCallback(async () => {
@@ -62,25 +76,41 @@ export default function ReportsPage() {
     setCompanyLoading(true);
     try {
       const res = await fetch(`/api/reports?type=company-analysis&companyId=${selectedCompany}`);
-      if (res.ok) setCompanyData(await res.json());
-    } catch { /* silent */ }
-    finally { setCompanyLoading(false); }
+      if (res.ok) {
+        setCompanyData(await res.json());
+      } else {
+        setCompanyData(null);
+      }
+    } catch {
+      setCompanyData(null);
+    } finally { setCompanyLoading(false); }
   }, [selectedCompany]);
 
   const fetchTrendAnalysis = useCallback(async () => {
     setTrendLoading(true);
     try {
       const res = await fetch('/api/reports?type=trend');
-      if (res.ok) setTrendData(await res.json());
-    } catch { /* silent */ }
-    finally { setTrendLoading(false); }
+      if (res.ok) {
+        setTrendData(await res.json());
+      } else {
+        setTrendData(null);
+      }
+    } catch {
+      setTrendData(null);
+    } finally { setTrendLoading(false); }
   }, []);
 
   useEffect(() => { fetchOBAnalysis(); }, [fetchOBAnalysis]);
   useEffect(() => { fetchCompanyAnalysis(); }, [fetchCompanyAnalysis]);
-  useEffect(() => { fetchTrendAnalysis(); }, [fetchTrendAnalysis]);
 
-  const obChartConfig = { totalSales: { label: 'Closing Balance', color: '#059669' } };
+  // Only fetch trend when the trend tab is activated
+  useEffect(() => {
+    if (activeTab === 'trend' && !trendData && !trendLoading) {
+      fetchTrendAnalysis();
+    }
+  }, [activeTab, trendData, trendLoading, fetchTrendAnalysis]);
+
+  const obChartConfig = { totalSales: { label: 'Sales', color: '#059669' }, totalRecovery: { label: 'Recovery', color: '#d97706' } };
   const companyBarConfig = { totalSales: { label: 'Sales', color: '#059669' }, totalRecovery: { label: 'Recovery', color: '#0284c7' } };
   const trendChartConfig = { totalSales: { label: 'Sales', color: '#059669' }, totalRecovery: { label: 'Recovery', color: '#d97706' }, totalCredit: { label: 'Credit', color: '#dc2626' } };
 
@@ -110,7 +140,7 @@ export default function ReportsPage() {
         <p className="text-muted-foreground text-sm">Detailed analysis and performance insights</p>
       </div>
 
-      <Tabs defaultValue="ob" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="ob" className="gap-1.5">
             <TrendingUp className="w-4 h-4" /> OB Analysis
@@ -176,64 +206,71 @@ export default function ReportsPage() {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Daily Performance Trend</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={obChartConfig} className="h-64 w-full">
-                    <LineChart data={obDailyPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} />
-                    </LineChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
+              {obDailyPerformance.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Daily Performance Trend</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer config={obChartConfig} className="h-64 w-full">
+                      <LineChart data={obDailyPerformance}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} name="Sales" />
+                        <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} name="Recovery" />
+                      </LineChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Company-wise Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Company</TableHead>
-                          <TableHead className="text-right">Sales</TableHead>
-                          <TableHead className="text-right">Recovery</TableHead>
-                          <TableHead className="text-right">Credit</TableHead>
-                          <TableHead className="text-right">Balance</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {obCompanyBreakdown.map((c) => (
-                          <TableRow key={c.companyId}>
-                            <TableCell className="font-medium">{c.companyName}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">{c.totalSales.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs text-emerald-600">{c.totalRecovery.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs text-red-600">{c.totalCredit.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">
-                              <Badge variant={c.currentBalance > 0 ? 'destructive' : 'default'} className="text-xs">
-                                {c.currentBalance.toLocaleString()}
-                              </Badge>
-                            </TableCell>
+              {obCompanyBreakdown.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Company-wise Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Company</TableHead>
+                            <TableHead className="text-right">Sales</TableHead>
+                            <TableHead className="text-right">Recovery</TableHead>
+                            <TableHead className="text-right">Credit</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {obCompanyBreakdown.map((c) => (
+                            <TableRow key={c.companyId}>
+                              <TableCell className="font-medium">{c.companyName}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{c.totalSales.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-mono text-xs text-emerald-600">{c.totalRecovery.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-mono text-xs text-red-600">{c.totalCredit.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">
+                                <Badge variant={c.currentBalance > 0 ? 'destructive' : 'default'} className="text-xs">
+                                  {c.currentBalance.toLocaleString()}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : (
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
                 <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Select an Order Booker to view their analysis</p>
+                <p className="text-lg font-medium">Select an Order Booker</p>
+                <p className="text-sm">Choose an Order Booker from the dropdown to view their analysis</p>
               </CardContent>
             </Card>
           )}
@@ -286,66 +323,71 @@ export default function ReportsPage() {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">OB Comparison within Company</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={companyBarConfig} className="h-64 w-full">
-                    <BarChart data={coOBBreakdown}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="orderBookerName" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Bar dataKey="totalSales" fill="#059669" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="totalRecovery" fill="#0284c7" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
+              {coOBBreakdown.length > 0 && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">OB Comparison within Company</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer config={companyBarConfig} className="h-64 w-full">
+                        <BarChart data={coOBBreakdown}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="orderBookerName" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Legend />
+                          <Bar dataKey="totalSales" fill="#059669" radius={[4, 4, 0, 0]} name="Sales" />
+                          <Bar dataKey="totalRecovery" fill="#0284c7" radius={[4, 4, 0, 0]} name="Recovery" />
+                        </BarChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">OB Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Order Booker</TableHead>
-                          <TableHead className="text-right">Sales</TableHead>
-                          <TableHead className="text-right">Recovery</TableHead>
-                          <TableHead className="text-right">Credit</TableHead>
-                          <TableHead className="text-right">Balance</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {coOBBreakdown.map((ob) => (
-                          <TableRow key={ob.orderBookerId}>
-                            <TableCell className="font-medium">{ob.orderBookerName}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">{ob.totalSales.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs text-emerald-600">{ob.totalRecovery.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs text-red-600">{ob.totalCredit.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">
-                              <Badge variant={ob.currentBalance > 0 ? 'destructive' : 'default'} className="text-xs">
-                                {ob.currentBalance.toLocaleString()}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">OB Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Order Booker</TableHead>
+                              <TableHead className="text-right">Sales</TableHead>
+                              <TableHead className="text-right">Recovery</TableHead>
+                              <TableHead className="text-right">Credit</TableHead>
+                              <TableHead className="text-right">Balance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {coOBBreakdown.map((ob) => (
+                              <TableRow key={ob.orderBookerId}>
+                                <TableCell className="font-medium">{ob.orderBookerName}</TableCell>
+                                <TableCell className="text-right font-mono text-xs">{ob.totalSales.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-mono text-xs text-emerald-600">{ob.totalRecovery.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-mono text-xs text-red-600">{ob.totalCredit.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-mono text-xs">
+                                  <Badge variant={ob.currentBalance > 0 ? 'destructive' : 'default'} className="text-xs">
+                                    {ob.currentBalance.toLocaleString()}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </>
           ) : (
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
                 <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Select a Company to view its analysis</p>
+                <p className="text-lg font-medium">Select a Company</p>
+                <p className="text-sm">Choose a Company from the dropdown to view its analysis</p>
               </CardContent>
             </Card>
           )}
@@ -360,74 +402,91 @@ export default function ReportsPage() {
             </div>
           ) : trendData ? (
             <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-emerald-600" />
-                    Overall Performance Trend
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={trendChartConfig} className="h-64 w-full">
-                    <LineChart data={trendDaily}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="totalCredit" stroke="#dc2626" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
+              {trendDaily.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-emerald-600" />
+                      Overall Performance Trend
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer config={trendChartConfig} className="h-64 w-full">
+                      <LineChart data={trendDaily}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} dot={false} name="Sales" />
+                        <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} dot={false} name="Recovery" />
+                        <Line type="monotone" dataKey="totalCredit" stroke="#dc2626" strokeWidth={2} dot={false} name="Credit" />
+                      </LineChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-emerald-600" />
-                    Credit Risk Assessment
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Order Booker</TableHead>
-                          <TableHead className="text-right">Total Credit</TableHead>
-                          <TableHead className="text-right">Recovery Rate</TableHead>
-                          <TableHead>Risk Level</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {obRiskAnalysis.map((r) => {
-                          const risk = riskLevelMap[r.riskLevel] || riskLevelMap.medium;
-                          return (
-                            <TableRow key={r.orderBookerId}>
-                              <TableCell className="font-medium">{r.orderBookerName}</TableCell>
-                              <TableCell className="text-right font-mono">{r.totalCredit.toLocaleString()}</TableCell>
-                              <TableCell className="text-right font-mono">{r.recoveryRate.toFixed(1)}%</TableCell>
-                              <TableCell>
-                                <Badge className={`${risk.color} border`}>
-                                  {risk.emoji} {risk.label}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+              {obRiskAnalysis.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-emerald-600" />
+                      Credit Risk Assessment
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order Booker</TableHead>
+                            <TableHead className="text-right">Total Sales</TableHead>
+                            <TableHead className="text-right">Total Credit</TableHead>
+                            <TableHead className="text-right">Recovery Rate</TableHead>
+                            <TableHead>Risk Level</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {obRiskAnalysis.map((r) => {
+                            const risk = riskLevelMap[r.riskLevel] || riskLevelMap.medium;
+                            return (
+                              <TableRow key={r.orderBookerId}>
+                                <TableCell className="font-medium">{r.orderBookerName}</TableCell>
+                                <TableCell className="text-right font-mono">{r.totalSales.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-mono text-red-600">{r.totalCredit.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-mono">{r.recoveryRate.toFixed(1)}%</TableCell>
+                                <TableCell>
+                                  <Badge className={`${risk.color} border`}>
+                                    {risk.emoji} {risk.label}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {trendDaily.length === 0 && obRiskAnalysis.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center text-muted-foreground">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-lg font-medium">No data available yet</p>
+                    <p className="text-sm">Add some entries first to see trend analysis</p>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : (
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
                 <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>No trend data available</p>
+                <p className="text-lg font-medium">No trend data available</p>
+                <p className="text-sm">Add some entries first to see trend analysis</p>
               </CardContent>
             </Card>
           )}

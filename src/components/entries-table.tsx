@@ -83,8 +83,14 @@ export default function EntriesTable() {
         fetch('/api/order-bookers'),
         fetch('/api/companies'),
       ]);
-      if (obRes.ok) setOrderBookers(await obRes.json());
-      if (coRes.ok) setCompanies(await coRes.json());
+      if (obRes.ok) {
+        const obData = await obRes.json();
+        setOrderBookers(obData.orderBookers || []);
+      }
+      if (coRes.ok) {
+        const coData = await coRes.json();
+        setCompanies(coData.companies || []);
+      }
     } catch {
       // silent
     }
