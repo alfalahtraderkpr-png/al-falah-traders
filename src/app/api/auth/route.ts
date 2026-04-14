@@ -62,6 +62,58 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { currentPassword, newPassword } = body
+
+    if (!currentPassword || !newPassword) {
+      return NextResponse.json(
+        { error: 'Current password and new password are required' },
+        { status: 400 }
+      )
+    }
+
+    if (newPassword.length < 4) {
+      return NextResponse.json(
+        { error: 'New password must be at least 4 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Find the admin and verify current password
+    const admin = await db.admin.findUnique({
+      where: { id: session.id },
+    })
+
+    if (!admin || admin.password !== currentPassword) {
+      return NextResponse.json(
+        { error: 'Current password is incorrect' },
+        { status: 401 }
+      )
+    }
+
+    // Update password
+    await db.admin.update({
+      where: { id: session.id },
+      data: { password: newPassword },
+    })
+
+    return NextResponse.json({ success: true, message: 'Password updated successfully' })
+  } catch (error) {
+    console.error('Password change error:', error)
+    return NextResponse.json(
+      { error: 'Failed to change password' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE() {
   try {
     const cookieOptions = clearSessionCookie()

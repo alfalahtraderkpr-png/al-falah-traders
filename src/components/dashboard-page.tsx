@@ -6,18 +6,22 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import {
   TrendingUp, TrendingDown, DollarSign, AlertTriangle, BarChart3, PieChart as PieChartIcon,
-  CalendarIcon, RefreshCw,
+  CalendarIcon, RefreshCw, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Percent,
+  Plus, X, Trophy, AlertCircle, ArrowRight, CheckCircle2,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import EntryForm from '@/components/entry-form';
 
 interface DashboardAPIResponse {
   summary: {
@@ -57,10 +61,16 @@ interface DashboardAPIResponse {
   }[];
 }
 
-const COLORS = ['#059669', '#d97706', '#0284c7', '#dc2626', '#7c3aed', '#db2777'];
+const COLORS = ['#059669', '#d97706', '#0284c7', '#dc2626', '#7c3aed', '#db2777', '#0891b2', '#65a30d'];
 
 function formatPKR(value: number): string {
   return `PKR ${value.toLocaleString('en-PK')}`;
+}
+
+function formatCompact(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+  return value.toString();
 }
 
 export default function DashboardPage() {
@@ -71,6 +81,16 @@ export default function DashboardPage() {
     return { from: startOfMonth(now), to: now };
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Quick Entry FAB
+  const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+
+  // Daily Summary Banner
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [todaySummary, setTodaySummary] = useState<{ sales: number; recovery: number; credit: number; entries: number } | null>(null);
+
+  // MoM comparison data
+  const [lastMonthData, setLastMonthData] = useState<{ totalSales: number; totalRecovery: number; totalCredit: number } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -90,6 +110,48 @@ export default function DashboardPage() {
     }
   }, [dateRange]);
 
+  // Fetch today's summary for banner
+  useEffect(() => {
+    const fetchTodaySummary = async () => {
+      try {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const params = new URLSearchParams({ dateFrom: today, dateTo: today });
+        const res = await fetch(`/api/dashboard?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          const s = json.summary;
+          if (s && s.entryCount > 0) {
+            setTodaySummary({ sales: s.totalSales, recovery: s.totalRecovery, credit: s.totalCredit, entries: s.entryCount });
+          }
+        }
+      } catch { /* silent */ }
+    };
+    fetchTodaySummary();
+  }, []);
+
+  // Fetch last month data for MoM comparison
+  useEffect(() => {
+    const fetchLastMonth = async () => {
+      try {
+        const lastMonth = subMonths(new Date(), 1);
+        const params = new URLSearchParams({
+          dateFrom: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
+          dateTo: format(endOfMonth(lastMonth), 'yyyy-MM-dd'),
+        });
+        const res = await fetch(`/api/dashboard?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setLastMonthData({
+            totalSales: json.summary?.totalSales || 0,
+            totalRecovery: json.summary?.totalRecovery || 0,
+            totalCredit: json.summary?.totalCredit || 0,
+          });
+        }
+      } catch { /* silent */ }
+    };
+    fetchLastMonth();
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -97,50 +159,99 @@ export default function DashboardPage() {
   const totalSales = data?.summary?.totalSales || 0;
   const totalRecovery = data?.summary?.totalRecovery || 0;
   const totalCredit = data?.summary?.totalCredit || 0;
+  const totalStockReturn = data?.summary?.totalStockReturn || 0;
+  const totalOldRecovery = data?.summary?.totalOldRecovery || 0;
   const netRecoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
+  const creditToSalesRatio = totalSales > 0 ? (totalCredit / totalSales) * 100 : 0;
+
+  // MoM calculations
+  const momSalesChange = lastMonthData && lastMonthData.totalSales > 0
+    ? ((totalSales - lastMonthData.totalSales) / lastMonthData.totalSales) * 100
+    : null;
+  const momRecoveryChange = lastMonthData && lastMonthData.totalRecovery > 0
+    ? ((totalRecovery - lastMonthData.totalRecovery) / lastMonthData.totalRecovery) * 100
+    : null;
+  const momCreditChange = lastMonthData && lastMonthData.totalCredit > 0
+    ? ((totalCredit - lastMonthData.totalCredit) / lastMonthData.totalCredit) * 100
+    : null;
+
+  // Top performers: OBs sorted by recovery rate
+  const topPerformers = [...(data?.orderBookerBreakdown || [])]
+    .map(ob => ({
+      ...ob,
+      recoveryRate: ob.totalSales > 0 ? (ob.totalRecovery / ob.totalSales) * 100 : 0,
+    }))
+    .sort((a, b) => b.recoveryRate - a.recoveryRate)
+    .slice(0, 3);
+
+  // Attention needed: OBs with high outstanding
+  const attentionNeeded = [...(data?.orderBookerBreakdown || [])]
+    .filter(ob => ob.totalCredit > 0)
+    .sort((a, b) => b.totalCredit - a.totalCredit)
+    .slice(0, 3);
 
   const kpiCards = [
     {
       title: 'Total Sales',
+      subtitle: 'Posted Summary Total',
       value: formatPKR(totalSales),
+      compact: formatCompact(totalSales),
       icon: DollarSign,
       trend: 'up' as const,
       color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
+      bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+      borderColor: 'border-emerald-200 dark:border-emerald-800',
+      kpiClass: 'kpi-sales',
+      progressValue: 100,
+      momChange: momSalesChange,
     },
     {
       title: 'Total Recovery',
+      subtitle: 'Cash Received',
       value: formatPKR(totalRecovery),
-      icon: TrendingUp,
+      compact: formatCompact(totalRecovery),
+      icon: Wallet,
       trend: 'up' as const,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
+      color: 'text-sky-600 dark:text-sky-400',
+      bg: 'bg-sky-50 dark:bg-sky-950/50',
+      borderColor: 'border-sky-200 dark:border-sky-800',
+      kpiClass: 'kpi-recovery',
+      progressValue: netRecoveryRate,
+      momChange: momRecoveryChange,
     },
     {
       title: 'Credit Outstanding',
+      subtitle: 'Pending Amount',
       value: formatPKR(totalCredit),
-      icon: AlertTriangle,
+      compact: formatCompact(totalCredit),
+      icon: CreditCard,
       trend: 'down' as const,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
-      borderColor: 'border-red-200',
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-950/50',
+      borderColor: 'border-red-200 dark:border-red-800',
+      kpiClass: 'kpi-credit',
+      progressValue: creditToSalesRatio,
+      momChange: momCreditChange,
     },
     {
-      title: 'Net Recovery Rate',
+      title: 'Recovery Rate',
+      subtitle: 'Net Collection %',
       value: `${netRecoveryRate.toFixed(1)}%`,
-      icon: BarChart3,
+      compact: `${netRecoveryRate.toFixed(0)}%`,
+      icon: Percent,
       trend: netRecoveryRate >= 70 ? 'up' as const : 'down' as const,
-      color: netRecoveryRate >= 70 ? 'text-emerald-600' : 'text-red-600',
-      bg: netRecoveryRate >= 70 ? 'bg-emerald-50' : 'bg-red-50',
-      borderColor: netRecoveryRate >= 70 ? 'border-emerald-200' : 'border-red-200',
+      color: netRecoveryRate >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400',
+      bg: netRecoveryRate >= 70 ? 'bg-amber-50 dark:bg-amber-950/50' : 'bg-red-50 dark:bg-red-950/50',
+      borderColor: netRecoveryRate >= 70 ? 'border-amber-200 dark:border-amber-800' : 'border-red-200 dark:border-red-800',
+      kpiClass: 'kpi-rate',
+      progressValue: netRecoveryRate,
+      momChange: null,
     },
   ];
 
   const trendChartConfig = {
     totalSales: { label: 'Sales', color: '#059669' },
-    totalRecovery: { label: 'Recovery', color: '#d97706' },
+    totalRecovery: { label: 'Recovery', color: '#0284c7' },
   };
 
   const obChartConfig = {
@@ -157,27 +268,52 @@ export default function DashboardPage() {
   const indicators = (data?.orderBookerBreakdown || []).map((ob) => {
     const rate = ob.totalSales > 0 ? (ob.totalRecovery / ob.totalSales) * 100 : 0;
     if (rate >= 70) {
-      return { obName: ob.name, type: 'growth' as const, detail: `${rate.toFixed(0)}% recovery rate` };
+      return { obName: ob.name, type: 'growth' as const, detail: `${rate.toFixed(0)}% recovery rate`, rate, credit: ob.totalCredit, sales: ob.totalSales };
     }
     if (ob.totalCredit > 0) {
-      return { obName: ob.name, type: 'risk' as const, detail: `PKR ${ob.totalCredit.toLocaleString()} credit outstanding` };
+      return { obName: ob.name, type: 'risk' as const, detail: `PKR ${ob.totalCredit.toLocaleString()} outstanding`, rate, credit: ob.totalCredit, sales: ob.totalSales };
     }
     return null;
-  }).filter(Boolean) as { obName: string; type: 'growth' | 'risk'; detail: string }[];
+  }).filter(Boolean) as { obName: string; type: 'growth' | 'risk'; detail: string; rate: number; credit: number; sales: number }[];
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6 relative">
+      {/* Daily Summary Notification Banner */}
+      {todaySummary && !bannerDismissed && (
+        <div className="animate-fade-in-up bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl p-4 flex items-center justify-between shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-white/20 shrink-0">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Today&apos;s Summary</p>
+              <p className="text-xs text-emerald-100">
+                PKR {todaySummary.sales.toLocaleString()} sales, PKR {todaySummary.recovery.toLocaleString()} recovery, PKR {todaySummary.credit.toLocaleString()} credit across {todaySummary.entries} {todaySummary.entries === 1 ? 'entry' : 'entries'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-white hover:bg-white/20 shrink-0"
+            onClick={() => setBannerDismissed(true)}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Header with Date Picker */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">Dashboard</h1>
           <p className="text-muted-foreground text-sm">Overview of your distribution performance</p>
         </div>
         <div className="flex items-center gap-2">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <CalendarIcon className="w-4 h-4" />
+              <Button variant="outline" className="gap-2 text-xs h-9">
+                <CalendarIcon className="w-3.5 h-3.5" />
                 {dateRange?.from ? (
                   dateRange.to ? (
                     <>
@@ -205,8 +341,8 @@ export default function DashboardPage() {
               />
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -215,62 +351,206 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}>
+              <Card key={i} className="animate-fade-in-up">
                 <CardContent className="p-6">
                   <Skeleton className="h-4 w-24 mb-2" />
-                  <Skeleton className="h-8 w-36 mb-1" />
-                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-8 w-36 mb-2" />
+                  <Skeleton className="h-2 w-full rounded-full" />
                 </CardContent>
               </Card>
             ))
-          : kpiCards.map((kpi) => (
-              <Card key={kpi.title} className={`border ${kpi.borderColor}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">{kpi.title}</span>
+          : kpiCards.map((kpi, i) => (
+              <Card key={kpi.title} className={`kpi-card ${kpi.kpiClass} card-hover border ${kpi.borderColor} animate-fade-in-up stagger-${i + 1}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-medium text-muted-foreground">{kpi.title}</span>
+                      <span className="text-[10px] text-muted-foreground/70 block">{kpi.subtitle}</span>
+                    </div>
                     <div className={`p-2 rounded-lg ${kpi.bg}`}>
                       <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
                     </div>
                   </div>
-                  <div className="text-2xl font-bold">{kpi.value}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {kpi.trend === 'up' ? (
-                      <TrendingUp className="w-3 h-3 text-emerald-600" />
+                  <div className="text-2xl font-bold tracking-tight mb-2">{kpi.value}</div>
+                  <Progress
+                    value={Math.min(kpi.progressValue, 100)}
+                    className="h-1.5 mb-2"
+                  />
+                  <div className="flex items-center gap-1">
+                    {kpi.momChange !== null ? (
+                      <>
+                        {kpi.momChange >= 0 ? (
+                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <ArrowDownRight className="w-3 h-3 text-red-500" />
+                        )}
+                        <span className={`text-[11px] font-medium ${kpi.momChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {kpi.momChange >= 0 ? '+' : ''}{kpi.momChange.toFixed(1)}% vs last month
+                        </span>
+                      </>
                     ) : (
-                      <TrendingDown className="w-3 h-3 text-red-600" />
+                      <>
+                        {kpi.trend === 'up' ? (
+                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <ArrowDownRight className="w-3 h-3 text-red-500" />
+                        )}
+                        <span className={`text-[11px] font-medium ${kpi.trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {kpi.trend === 'up' ? 'Positive' : 'Attention needed'}
+                        </span>
+                      </>
                     )}
-                    <span className={`text-xs ${kpi.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {kpi.trend === 'up' ? 'Positive' : 'Attention needed'}
-                    </span>
                   </div>
                 </CardContent>
               </Card>
             ))}
       </div>
 
+      {/* Top Performers + Attention Needed */}
+      {!loading && data && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fade-in-up">
+          {/* Top Performers */}
+          <Card className="card-hover border border-emerald-200 dark:border-emerald-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                Top Performers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topPerformers.length > 0 ? (
+                <div className="space-y-3">
+                  {topPerformers.map((ob, i) => (
+                    <div key={ob.id} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-50/50 to-amber-100/30 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200/50 dark:border-amber-800/50">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${
+                        i === 0 ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
+                        i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' :
+                        'bg-gradient-to-br from-orange-400 to-orange-500'
+                      }`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{ob.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatPKR(ob.totalRecovery)} recovered of {formatPKR(ob.totalSales)}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{ob.recoveryRate.toFixed(0)}%</p>
+                        <Progress value={ob.recoveryRate} className="h-1 w-16 mt-1" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <Trophy className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No data for this period</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Attention Needed */}
+          <Card className="card-hover border border-red-200 dark:border-red-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Attention Needed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attentionNeeded.length > 0 ? (
+                <div className="space-y-3">
+                  {attentionNeeded.map((ob) => {
+                    const rate = ob.totalSales > 0 ? (ob.totalRecovery / ob.totalSales) * 100 : 0;
+                    return (
+                      <div key={ob.id} className="flex items-center gap-3 p-3 rounded-lg bg-red-50/50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/50">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shrink-0">
+                          <AlertTriangle className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{ob.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Outstanding: <span className="text-red-600 dark:text-red-400 font-medium">{formatPKR(ob.totalCredit)}</span>
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-mono font-bold text-red-600 dark:text-red-400">{rate.toFixed(0)}%</p>
+                          <p className="text-[10px] text-muted-foreground">recovery</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-300" />
+                  <p className="text-sm">All OBs are in good standing</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Summary Stats Bar */}
+      {!loading && data && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entries</p>
+              <p className="text-sm font-bold">{data.summary.entryCount}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <DollarSign className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Old Recovery</p>
+              <p className="text-sm font-bold">{formatCompact(totalOldRecovery)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stock Returns</p>
+              <p className="text-sm font-bold">{formatCompact(totalStockReturn)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <BarChart3 className="w-4 h-4 text-sky-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">OBs Active</p>
+              <p className="text-sm font-bold">{data.orderBookerBreakdown.length}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Daily Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Daily Sales vs Recovery
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-64 w-full shimmer" />
             ) : (
               <ChartContainer config={trendChartConfig} className="h-64 w-full">
                 <LineChart data={data?.dailyTrend || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} dot={false} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="totalRecovery" stroke="#0284c7" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ChartContainer>
             )}
@@ -278,24 +558,24 @@ export default function DashboardPage() {
         </Card>
 
         {/* OB Performance Bar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-600" />
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Order Booker Performance
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-64 w-full shimmer" />
             ) : (
               <ChartContainer config={obChartConfig} className="h-64 w-full">
                 <BarChart data={data?.orderBookerBreakdown || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="totalSales" fill="#059669" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="totalRecovery" fill="#0284c7" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -308,17 +588,17 @@ export default function DashboardPage() {
       {/* Company Distribution + Indicators */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Company Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <PieChartIcon className="w-5 h-5 text-emerald-600" />
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PieChartIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Company-wise Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
+              <Skeleton className="h-64 w-full shimmer" />
+            ) : (data?.companyBreakdown || []).length > 0 ? (
               <ChartContainer config={pieChartConfig} className="h-64 w-full">
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent />} />
@@ -326,28 +606,33 @@ export default function DashboardPage() {
                     data={(data?.companyBreakdown || []).map((c) => ({ name: c.name, value: c.totalSales }))}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={55}
+                    outerRadius={85}
                     dataKey="value"
                     nameKey="name"
                     label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ strokeWidth: 1 }}
                   >
                     {(data?.companyBreakdown || []).map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ChartContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                No company data available
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Performance Indicators */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-emerald-600" />
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Performance Indicators
             </CardTitle>
           </CardHeader>
@@ -355,45 +640,92 @@ export default function DashboardPage() {
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
+                  <Skeleton key={i} className="h-14 w-full shimmer" />
                 ))}
               </div>
             ) : indicators.length > 0 ? (
-              <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+              <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar pr-1">
                 {indicators.map((ind, i) => (
                   <div
                     key={i}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                       ind.type === 'growth'
-                        ? 'bg-emerald-50 border-emerald-200'
-                        : 'bg-red-50 border-red-200'
+                        ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800'
+                        : 'bg-red-50/50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg shrink-0 ${
+                      ind.type === 'growth' ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'
+                    }`}>
                       {ind.type === 'growth' ? (
-                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
                       )}
-                      <span className="text-sm font-medium">{ind.obName}</span>
                     </div>
-                    <Badge
-                      variant={ind.type === 'growth' ? 'default' : 'destructive'}
-                      className={ind.type === 'growth' ? 'bg-emerald-600' : ''}
-                    >
-                      {ind.type === 'growth' ? 'Growth' : 'Risk'}
-                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{ind.obName}</span>
+                        <Badge
+                          variant={ind.type === 'growth' ? 'default' : 'destructive'}
+                          className={`text-[10px] px-1.5 py-0 h-4 ${ind.type === 'growth' ? 'bg-emerald-600' : ''}`}
+                        >
+                          {ind.type === 'growth' ? 'Growth' : 'Risk'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{ind.detail}</p>
+                      {ind.type === 'risk' && (
+                        <Progress value={ind.rate} className="h-1 mt-1.5" />
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-mono font-bold">{ind.rate.toFixed(0)}%</p>
+                      <p className="text-[10px] text-muted-foreground">recovery</p>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No performance indicators available for this period
-              </p>
+              <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
+                <Activity className="w-12 h-12 mb-3 opacity-20" />
+                <p className="text-sm font-medium">No performance indicators</p>
+                <p className="text-xs mt-1">Available for this period</p>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Entry FAB */}
+      <button
+        onClick={() => setQuickEntryOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white shadow-xl shadow-emerald-300/50 dark:shadow-emerald-900/50 flex items-center justify-center transition-all hover:scale-105 active:scale-95 no-print"
+        aria-label="Quick Add Entry"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Quick Entry Dialog */}
+      <Dialog open={quickEntryOpen} onOpenChange={setQuickEntryOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Quick Add Entry
+            </DialogTitle>
+            <DialogDescription>
+              Add a new distribution entry without leaving the dashboard
+            </DialogDescription>
+          </DialogHeader>
+          <EntryForm
+            onSuccess={() => {
+              setQuickEntryOpen(false);
+              fetchData();
+            }}
+            onCancel={() => setQuickEntryOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

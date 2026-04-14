@@ -251,11 +251,11 @@ async function handleCompanyAnalysis(
       obMap.set(obId, {
         orderBookerId: obId,
         orderBookerName: entry.orderBooker.name,
-        totalSales: 0,
-        totalRecovery: 0,
-        totalCredit: 0,
-        totalStockReturn: 0,
-        entryCount: 0,
+        totalSales: entry.summaryAmount,
+        totalRecovery: entry.cashReceived,
+        totalCredit: entry.creditPosted,
+        totalStockReturn: entry.stockReturn,
+        entryCount: 1,
         currentBalance: entry.closingBalance, // First (latest) entry's closing balance
       })
     } else {
@@ -265,14 +265,7 @@ async function handleCompanyAnalysis(
       obData.totalCredit += entry.creditPosted
       obData.totalStockReturn += entry.stockReturn
       obData.entryCount++
-      continue
     }
-    const obData = obMap.get(obId)!
-    obData.totalSales += entry.summaryAmount
-    obData.totalRecovery += entry.cashReceived
-    obData.totalCredit += entry.creditPosted
-    obData.totalStockReturn += entry.stockReturn
-    obData.entryCount++
   }
 
   // Daily trend
