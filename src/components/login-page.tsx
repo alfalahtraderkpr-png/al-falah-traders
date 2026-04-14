@@ -135,7 +135,7 @@ export default function LoginPage() {
         )}
 
         {/* Login Form */}
-        <Card className="shadow-2xl shadow-emerald-200/40 dark:shadow-emerald-900/30 animate-fade-in-up stagger-2 glass-dialog">
+        <Card className="shadow-2xl shadow-emerald-200/40 dark:shadow-emerald-900/30 animate-fade-in-up stagger-2 glass-dialog login-card-v2">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-2xl text-center flex items-center justify-center gap-2">
               <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50">

@@ -124,24 +124,6 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
     return () => { if (clockRef.current) clearInterval(clockRef.current); };
   }, []);
 
-  // Auto-refresh countdown
-  useEffect(() => {
-    if (!autoRefresh) {
-      setCountdown(60);
-      return;
-    }
-    autoRefreshRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          fetchData();
-          return 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => { if (autoRefreshRef.current) clearInterval(autoRefreshRef.current); };
-  }, [autoRefresh, fetchData]);
-
   // Daily Summary Banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [todaySummary, setTodaySummary] = useState<{ sales: number; recovery: number; credit: number; entries: number } | null>(null);
@@ -167,6 +149,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
     fetchRecent();
   }, []);
 
+  // fetchData MUST be defined before the useEffect that references it (fixes TDZ violation)
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -185,6 +168,24 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       setLoading(false);
     }
   }, [dateRange]);
+
+  // Auto-refresh countdown (MUST come after fetchData definition)
+  useEffect(() => {
+    if (!autoRefresh) {
+      setCountdown(60);
+      return;
+    }
+    autoRefreshRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          fetchData();
+          return 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (autoRefreshRef.current) clearInterval(autoRefreshRef.current); };
+  }, [autoRefresh, fetchData]);
 
   // Fetch today's summary for banner
   useEffect(() => {
@@ -565,7 +566,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
               </Card>
             ))
           : kpiCards.map((kpi, i) => (
-              <Card key={kpi.title} className={`kpi-card ${kpi.kpiClass} card-hover border ${kpi.borderColor} animate-fade-in-up stagger-${i + 1}`}>
+              <Card key={kpi.title} className={`kpi-card-v2 ${kpi.kpiClass} card-hover border ${kpi.borderColor} animate-fade-in-up stagger-${i + 1}`}>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="space-y-0.5">
@@ -623,7 +624,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
 
       {/* Quick Actions Panel */}
       {!loading && (
-        <Card className="card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
+        <Card className="glass-card-v2 card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />
@@ -807,14 +808,80 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
               <p className="text-sm font-bold">{formatCompact(totalStockReturn)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border hover-lift">
             <BarChart3 className="w-4 h-4 text-sky-500 shrink-0" />
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">OBs Active</p>
-              <p className="text-sm font-bold">{data.orderBookerBreakdown?.length ?? 0}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg Recovery/OB</p>
+              <p className="text-sm font-bold">{formatCompact(data.orderBookerBreakdown?.length ? totalRecovery / data.orderBookerBreakdown.length : 0)}</p>
             </div>
           </div>
         </div>
+      )}
+
+      {/* OB Performance Overview - New Feature */}
+      {!loading && data && data.orderBookerBreakdown && data.orderBookerBreakdown.length > 0 && (
+        <Card className="glass-card-v2 card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 section-header-enhanced">
+              <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Order Booker Performance Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {data.orderBookerBreakdown.map((ob) => {
+                const rate = ob.totalSales > 0 ? (ob.totalRecovery / ob.totalSales) * 100 : 0;
+                const avgPerEntry = ob.entryCount > 0 ? ob.totalSales / ob.entryCount : 0;
+                const isHealthy = rate >= 70;
+                return (
+                  <div
+                    key={ob.id}
+                    className={`p-3 rounded-xl border transition-all duration-200 hover:shadow-md hover-lift ${
+                      isHealthy
+                        ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/50'
+                        : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 ${
+                          isHealthy ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' : 'bg-gradient-to-br from-amber-500 to-amber-600'
+                        }`}>
+                          {ob.name.charAt(0)}
+                        </div>
+                        <p className="text-sm font-semibold truncate">{ob.name}</p>
+                      </div>
+                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 font-mono shrink-0 ${
+                        isHealthy ? 'border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300' : 'border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-300'
+                      }`}>
+                        {rate.toFixed(0)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground">Sales</span>
+                        <span className="font-mono font-medium">{formatCompact(ob.totalSales)}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground">Recovery</span>
+                        <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCompact(ob.totalRecovery)}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground">Outstanding</span>
+                        <span className={`font-mono font-medium ${ob.totalCredit > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatCompact(ob.totalCredit)}</span>
+                      </div>
+                      <Progress value={Math.min(rate, 100)} className={`h-1.5 ${isHealthy ? '' : '[&>div]:bg-amber-500'}`} />
+                      <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                        <span>{ob.entryCount} entries</span>
+                        <span>Avg {formatCompact(avgPerEntry)}/entry</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Charts Row */}

@@ -467,7 +467,7 @@ export default function EntriesTable() {
                 <p className="text-sm mt-1">Try adjusting your filters or add a new entry</p>
               </div>
             ) : (
-              <Table className="table-enhanced">
+              <Table className="table-modern">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky top-0 z-10 w-10">
