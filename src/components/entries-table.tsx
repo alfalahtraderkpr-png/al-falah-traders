@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 as TrashMultiple } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -69,6 +69,10 @@ export default function EntriesTable() {
   // Duplicate entry
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateEntry, setDuplicateEntry] = useState<Entry | null>(null);
+
+  // Bulk select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -227,6 +231,52 @@ export default function EntriesTable() {
   const totalRecovery = sortedEntries.reduce((s, e) => s + e.cashReceived, 0);
   const totalCredit = sortedEntries.reduce((s, e) => s + e.creditPosted, 0);
   const recoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const id of selectedIds) {
+      try {
+        const res = await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+    setBulkDeleting(false);
+    setSelectedIds(new Set());
+    if (failCount === 0) {
+      toast.success(`${successCount} entr${successCount === 1 ? 'y' : 'ies'} deleted successfully`);
+    } else {
+      toast.error(`Deleted ${successCount}, failed ${failCount}`);
+    }
+    fetchEntries();
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === paginatedEntries.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedEntries.map(e => e.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
 
   // Pagination logic
   const totalPages = Math.ceil(sortedEntries.length / pageSize);
@@ -420,6 +470,15 @@ export default function EntriesTable() {
               <Table className="table-enhanced">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="sticky top-0 z-10 w-10">
+                      <button onClick={toggleSelectAll} className="flex items-center" aria-label={selectedIds.size === paginatedEntries.length ? 'Deselect all' : 'Select all'}>
+                        {selectedIds.size === paginatedEntries.length && paginatedEntries.length > 0 ? (
+                          <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </TableHead>
                     <TableHead className="sticky top-0 z-10">Date</TableHead>
                     <TableHead className="sticky top-0 z-10">OB Name</TableHead>
                     <TableHead className="sticky top-0 z-10">Company</TableHead>
@@ -437,7 +496,16 @@ export default function EntriesTable() {
                 <TableBody>
                   {paginatedEntries.map((entry) => (
                     <React.Fragment key={entry.id}>
-                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} cursor-pointer row-highlight`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
+                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} ${selectedIds.has(entry.id) ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''} cursor-pointer row-highlight`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
+                      <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => toggleSelect(entry.id)} className="flex items-center" aria-label={selectedIds.has(entry.id) ? 'Deselect' : 'Select'}>
+                          {selectedIds.has(entry.id) ? (
+                            <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                          )}
+                        </button>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-sm font-medium">
                         {formatDate(entry.date)}
                       </TableCell>
@@ -518,7 +586,7 @@ export default function EntriesTable() {
                     {/* Expandable Row Details */}
                     {expandedRow === entry.id && (
                       <TableRow>
-                        <TableCell colSpan={12} className="p-0 border-0">
+                        <TableCell colSpan={13} className="p-0 border-0">
                           <div className="expandable-row-wrapper expanded">
                           <div className="px-6 py-4 bg-gradient-to-r from-emerald-50/50 via-transparent to-sky-50/50 dark:from-emerald-950/20 dark:via-transparent dark:to-sky-950/20 border-b border-emerald-200/30 dark:border-emerald-800/30">
                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -641,6 +709,51 @@ export default function EntriesTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Floating Bulk Delete Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
+          <div className="flex items-center gap-3 bg-red-600 text-white rounded-xl px-5 py-3 shadow-xl shadow-red-200/50 dark:shadow-red-900/40">
+            <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+            <div className="w-px h-5 bg-red-400/50" />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 text-white hover:bg-red-700 hover:text-white"
+                  disabled={bulkDeleting}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}`}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Bulk Delete Entries</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete {selectedIds.size} {selectedIds.size === 1 ? 'entry' : 'entries'}? This action cannot be undone and will affect balance calculations for all related order booker and company combinations.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700">
+                    Delete {selectedIds.size} {selectedIds.size === 1 ? 'Entry' : 'Entries'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-white hover:bg-red-700 hover:text-white"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson, Search, Filter } from 'lucide-react';
+import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson, Search, Filter, BarChart3, Calendar, TrendingUp, Wallet, CreditCard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
@@ -72,6 +72,18 @@ export default function SettingsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<{ orderBookers: number; companies: number; dailyEntries: number; balanceHistory: number; exportDate?: string } | null>(null);
 
+  // Data Statistics state
+  const [statsData, setStatsData] = useState<{
+    totalEntries: number;
+    earliestDate: string | null;
+    latestDate: string | null;
+    totalSales: number;
+    totalRecovery: number;
+    totalCredit: number;
+    totalOutstanding: number;
+  } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
   const fetchOBs = useCallback(async () => {
     setOBLoading(true);
     try {
@@ -97,6 +109,22 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => { fetchOBs(); fetchCompanies(); }, [fetchOBs, fetchCompanies]);
+
+  // Fetch data statistics
+  useEffect(() => {
+    const fetchStats = async () => {
+      setStatsLoading(true);
+      try {
+        const res = await fetch('/api/stats');
+        if (res.ok) {
+          const data = await res.json();
+          setStatsData(data);
+        }
+      } catch { /* silent */ }
+      finally { setStatsLoading(false); }
+    };
+    fetchStats();
+  }, []);
 
   // OB CRUD
   const openOBDialog = (ob?: OrderBooker) => {
@@ -437,22 +465,22 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="orderBookers" className="space-y-4">
         <TabsList className="no-print">
-          <TabsTrigger value="orderBookers" className="gap-1.5 text-xs">
+          <TabsTrigger value="orderBookers" className="gap-1.5 text-xs tab-indicator">
             <Users className="w-3.5 h-3.5" /> Order Bookers
           </TabsTrigger>
-          <TabsTrigger value="companies" className="gap-1.5 text-xs">
+          <TabsTrigger value="companies" className="gap-1.5 text-xs tab-indicator">
             <Building2 className="w-3.5 h-3.5" /> Companies
           </TabsTrigger>
-          <TabsTrigger value="system" className="gap-1.5 text-xs">
+          <TabsTrigger value="system" className="gap-1.5 text-xs tab-indicator">
             <Shield className="w-3.5 h-3.5" /> System
           </TabsTrigger>
-          <TabsTrigger value="backup" className="gap-1.5 text-xs">
+          <TabsTrigger value="backup" className="gap-1.5 text-xs tab-indicator">
             <HardDrive className="w-3.5 h-3.5" /> Backup
           </TabsTrigger>
         </TabsList>
 
         {/* Order Bookers Tab */}
-        <TabsContent value="orderBookers" className="space-y-4">
+        <TabsContent value="orderBookers" className="space-y-4 tab-content-animate">
           <div className="flex items-center justify-between animate-fade-in-up">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
@@ -522,7 +550,7 @@ export default function SettingsPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredOBs.map((ob) => (
-                        <TableRow key={ob.id} className="transition-all duration-200">
+                        <TableRow key={ob.id} className="transition-all duration-200 settings-row-hover">
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
@@ -589,7 +617,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Companies Tab */}
-        <TabsContent value="companies" className="space-y-4">
+        <TabsContent value="companies" className="space-y-4 tab-content-animate">
           <div className="flex items-center justify-between animate-fade-in-up">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/50">
@@ -661,7 +689,7 @@ export default function SettingsPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredCompanies.map((co) => (
-                        <TableRow key={co.id} className="transition-all duration-200">
+                        <TableRow key={co.id} className="transition-all duration-200 settings-row-hover">
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
@@ -728,7 +756,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* System Tab */}
-        <TabsContent value="system" className="space-y-4">
+        <TabsContent value="system" className="space-y-4 tab-content-animate">
           <Card className="card-hover animate-fade-in-up glass-card">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center gap-2">
@@ -784,6 +812,71 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* Data Statistics Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/50">
+                    <BarChart3 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  Data Statistics
+                </h3>
+                {statsLoading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-r from-sky-50/80 to-sky-100/50 dark:from-sky-950/30 dark:to-sky-900/20 border border-sky-200/50 dark:border-sky-800/50">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <div className="h-3 w-16 mx-auto mb-2 bg-muted animate-pulse rounded" />
+                        <div className="h-6 w-12 mx-auto bg-muted animate-pulse rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : statsData ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-r from-sky-50/80 to-sky-100/50 dark:from-sky-950/30 dark:to-sky-900/20 border border-sky-200/50 dark:border-sky-800/50">
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Entries</p>
+                        <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{statsData.totalEntries.toLocaleString()}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Date Range</p>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                          {statsData.earliestDate && statsData.latestDate
+                            ? `${new Date(statsData.earliestDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'short' })} - ${new Date(statsData.latestDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                            : 'No data'}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Sales</p>
+                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">PKR {statsData.totalSales.toLocaleString()}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Recovery</p>
+                        <p className="text-sm font-bold text-sky-600 dark:text-sky-400">PKR {statsData.totalRecovery.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-gradient-to-r from-amber-50/80 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200/50 dark:border-amber-800/50">
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Credit</p>
+                        <p className="text-sm font-bold text-red-600 dark:text-red-400">PKR {statsData.totalCredit.toLocaleString()}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Outstanding</p>
+                        <p className="text-sm font-bold text-red-600 dark:text-red-400">PKR {statsData.totalOutstanding.toLocaleString()}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-white/60 dark:bg-black/20">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Recovery Rate</p>
+                        <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                          {statsData.totalSales > 0 ? ((statsData.totalRecovery / statsData.totalSales) * 100).toFixed(1) : '0.0'}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-muted/30 border text-center text-muted-foreground text-xs">
+                    Could not load statistics
+                  </div>
+                )}
+              </div>
+
               {/* Change Password Section */}
               <div className="border-t pt-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
@@ -833,6 +926,50 @@ export default function SettingsPage() {
                           {showNewPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         </Button>
                       </div>
+                      {/* Password Strength Indicator */}
+                      {newPassword.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="w-full bg-muted/50 rounded-full overflow-hidden">
+                            <div
+                              className={`password-strength-bar ${
+                                (() => {
+                                  const hasLower = /[a-z]/.test(newPassword);
+                                  const hasUpper = /[A-Z]/.test(newPassword);
+                                  const hasDigit = /[0-9]/.test(newPassword);
+                                  const hasSpecial = /[^a-zA-Z0-9]/.test(newPassword);
+                                  const varietyScore = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+                                  if (newPassword.length < 4 || varietyScore <= 1) return 'password-strength-weak';
+                                  if (newPassword.length < 8 || varietyScore <= 2) return 'password-strength-medium';
+                                  return 'password-strength-strong';
+                                })()
+                              }`}
+                            />
+                          </div>
+                          <p className={`text-[10px] font-medium ${
+                            (() => {
+                              const hasLower = /[a-z]/.test(newPassword);
+                              const hasUpper = /[A-Z]/.test(newPassword);
+                              const hasDigit = /[0-9]/.test(newPassword);
+                              const hasSpecial = /[^a-zA-Z0-9]/.test(newPassword);
+                              const varietyScore = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+                              if (newPassword.length < 4 || varietyScore <= 1) return 'password-strength-label-weak';
+                              if (newPassword.length < 8 || varietyScore <= 2) return 'password-strength-label-medium';
+                              return 'password-strength-label-strong';
+                            })()
+                          }`}>
+                            {(() => {
+                              const hasLower = /[a-z]/.test(newPassword);
+                              const hasUpper = /[A-Z]/.test(newPassword);
+                              const hasDigit = /[0-9]/.test(newPassword);
+                              const hasSpecial = /[^a-zA-Z0-9]/.test(newPassword);
+                              const varietyScore = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+                              if (newPassword.length < 4 || varietyScore <= 1) return 'Weak - add variety';
+                              if (newPassword.length < 8 || varietyScore <= 2) return 'Medium - could be stronger';
+                              return 'Strong - good password';
+                            })()}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Confirm New Password</Label>
@@ -841,7 +978,7 @@ export default function SettingsPage() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Re-enter new password"
-                        className="h-9"
+                        className={`h-9 ${confirmPassword && newPassword !== confirmPassword ? 'error-field' : ''}`}
                       />
                     </div>
                   </div>
@@ -878,7 +1015,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Backup Tab */}
-        <TabsContent value="backup" className="space-y-4">
+        <TabsContent value="backup" className="space-y-4 tab-content-animate">
           <Card className="card-hover animate-fade-in-up glass-card">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center gap-2">

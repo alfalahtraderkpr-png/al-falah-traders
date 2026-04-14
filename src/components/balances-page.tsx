@@ -632,6 +632,30 @@ export default function BalancesPage() {
                     </span>
                     <span className="text-xs text-muted-foreground">remaining</span>
                   </div>
+                  {/* Settlement progress bar */}
+                  {settleCompany.outstanding > 0 && (
+                    <div className="mt-2.5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Settlement Progress</span>
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                          {Math.min(Math.round((parseFloat(settleAmount) / settleCompany.outstanding) * 100), 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted/50 rounded-full overflow-hidden h-2">
+                        <div
+                          className="h-full rounded-full transition-all duration-300 ease-out"
+                          style={{
+                            width: `${Math.min((parseFloat(settleAmount) / settleCompany.outstanding) * 100, 100)}%`,
+                            background: parseFloat(settleAmount) >= settleCompany.outstanding
+                              ? '#059669'
+                              : parseFloat(settleAmount) >= settleCompany.outstanding * 0.5
+                                ? '#d97706'
+                                : '#0284c7',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

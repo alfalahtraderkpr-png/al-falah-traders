@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
-import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles, CalendarIcon, RotateCcw, FileText, AreaChart as AreaChartIcon } from 'lucide-react';
+import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles, CalendarIcon, RotateCcw, FileText, AreaChart as AreaChartIcon, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -177,6 +177,91 @@ export default function ReportsPage() {
     toast.success('Use Save as PDF in the print dialog');
   };
 
+  const handleExportCSV = () => {
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+    const tab = activeTab;
+
+    if (tab === 'ob' && obStats) {
+      // OB Analysis CSV
+      headers = ['Metric', 'Value'];
+      rows = [
+        ['Total Sales', obStats.totalSales],
+        ['Total Recovery', obStats.totalRecovery],
+        ['Total Credit', obStats.totalCredit],
+        ['Recovery Rate (%)', obStats.recoveryRate.toFixed(1)],
+        ['Entry Count', obStats.entryCount],
+      ];
+      if (obCompanyBreakdown.length > 0) {
+        rows.push([]);
+        rows.push(['--- Company Breakdown ---', '']);
+        headers = ['Company', 'Sales', 'Recovery', 'Credit', 'Balance', 'Recovery %'];
+        rows = obCompanyBreakdown.map(c => [
+          c.companyName,
+          c.totalSales,
+          c.totalRecovery,
+          c.totalCredit,
+          c.currentBalance,
+          c.totalSales > 0 ? ((c.totalRecovery / c.totalSales) * 100).toFixed(1) : '0',
+        ]);
+      }
+    } else if (tab === 'company' && coStats) {
+      // Company Analysis CSV
+      headers = ['Metric', 'Value'];
+      rows = [
+        ['Total Sales', coStats.totalSales],
+        ['Total Recovery', coStats.totalRecovery],
+        ['Total Credit', coStats.totalCredit],
+        ['Entry Count', coStats.entryCount],
+      ];
+      if (coOBBreakdown.length > 0) {
+        rows.push([]);
+        rows.push(['--- OB Breakdown ---', '']);
+        headers = ['Order Booker', 'Sales', 'Recovery', 'Credit', 'Balance'];
+        rows = coOBBreakdown.map(ob => [
+          ob.orderBookerName,
+          ob.totalSales,
+          ob.totalRecovery,
+          ob.totalCredit,
+          ob.currentBalance,
+        ]);
+      }
+    } else if (tab === 'trend' && trendDaily.length > 0) {
+      // Trend Analysis CSV
+      headers = ['Date', 'Sales', 'Recovery', 'Credit'];
+      rows = trendDaily.map(d => [d.date, d.totalSales, d.totalRecovery, d.totalCredit]);
+      if (obRiskAnalysis.length > 0) {
+        rows.push([]);
+        rows.push(['--- OB Risk Assessment ---', '', '', '']);
+        rows.push(['Order Booker', 'Sales', 'Credit', 'Recovery Rate (%)', 'Risk Level']);
+        obRiskAnalysis.forEach(r => {
+          rows.push([r.orderBookerName, r.totalSales, r.totalCredit, r.recoveryRate.toFixed(1), r.riskLevel]);
+        });
+      }
+      if (companyRiskAnalysis.length > 0) {
+        rows.push([]);
+        rows.push(['--- Company Risk Assessment ---', '', '', '']);
+        rows.push(['Company', 'Sales', 'Credit', 'Recovery Rate (%)', 'Risk Level']);
+        companyRiskAnalysis.forEach(c => {
+          rows.push([c.companyName, c.totalSales, c.totalCredit, c.recoveryRate.toFixed(1), c.riskLevel]);
+        });
+      }
+    } else {
+      toast.error('No data available to export for the current tab');
+      return;
+    }
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${tab}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully');
+  };
+
   const StatCard = ({ title, value, color = 'emerald', subtext, icon: Icon }: { title: string; value: string; color?: string; subtext?: string; icon?: React.ElementType }) => {
     const colorMap: Record<string, string> = {
       emerald: 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/80 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20',
@@ -272,6 +357,10 @@ export default function ReportsPage() {
           <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800 btn-glow" onClick={handleExportPDF}>
             <FileText className="w-3.5 h-3.5" />
             PDF
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800" onClick={handleExportCSV}>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            CSV
           </Button>
         </div>
       </div>

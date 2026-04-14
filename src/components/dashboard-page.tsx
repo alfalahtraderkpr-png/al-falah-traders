@@ -149,6 +149,10 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   // MoM comparison data
   const [lastMonthData, setLastMonthData] = useState<{ totalSales: number; totalRecovery: number; totalCredit: number } | null>(null);
 
+  // Comparison mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [prevPeriodData, setPrevPeriodData] = useState<{ totalSales: number; totalRecovery: number; totalCredit: number; entryCount: number } | null>(null);
+
   // Fetch recent entries
   useEffect(() => {
     const fetchRecent = async () => {
@@ -228,6 +232,36 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
     fetchData();
   }, [fetchData]);
 
+  // Fetch previous period data when compare mode is on
+  useEffect(() => {
+    if (!compareMode || !dateRange?.from || !dateRange?.to) {
+      setPrevPeriodData(null);
+      return;
+    }
+    const fetchPrevPeriod = async () => {
+      try {
+        const periodLength = dateRange.to!.getTime() - dateRange.from!.getTime();
+        const prevTo = new Date(dateRange.from!.getTime() - 1);
+        const prevFrom = new Date(prevTo.getTime() - periodLength);
+        const params = new URLSearchParams({
+          dateFrom: format(prevFrom, 'yyyy-MM-dd'),
+          dateTo: format(prevTo, 'yyyy-MM-dd'),
+        });
+        const res = await fetch(`/api/dashboard?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setPrevPeriodData({
+            totalSales: json.summary?.totalSales || 0,
+            totalRecovery: json.summary?.totalRecovery || 0,
+            totalCredit: json.summary?.totalCredit || 0,
+            entryCount: json.summary?.entryCount || 0,
+          });
+        }
+      } catch { /* silent */ }
+    };
+    fetchPrevPeriod();
+  }, [compareMode, dateRange]);
+
   const totalSales = data?.summary?.totalSales || 0;
   const totalRecovery = data?.summary?.totalRecovery || 0;
   const totalCredit = data?.summary?.totalCredit || 0;
@@ -262,6 +296,17 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
     .sort((a, b) => b.totalCredit - a.totalCredit)
     .slice(0, 3);
 
+  // Comparison period calculations
+  const compSalesChange = prevPeriodData && prevPeriodData.totalSales > 0
+    ? ((totalSales - prevPeriodData.totalSales) / prevPeriodData.totalSales) * 100
+    : null;
+  const compRecoveryChange = prevPeriodData && prevPeriodData.totalRecovery > 0
+    ? ((totalRecovery - prevPeriodData.totalRecovery) / prevPeriodData.totalRecovery) * 100
+    : null;
+  const compCreditChange = prevPeriodData && prevPeriodData.totalCredit > 0
+    ? ((totalCredit - prevPeriodData.totalCredit) / prevPeriodData.totalCredit) * 100
+    : null;
+
   const kpiCards = [
     {
       title: 'Total Sales',
@@ -276,6 +321,8 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       kpiClass: 'kpi-sales',
       progressValue: 100,
       momChange: momSalesChange,
+      prevValue: prevPeriodData?.totalSales,
+      compChange: compSalesChange,
     },
     {
       title: 'Total Recovery',
@@ -290,6 +337,8 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       kpiClass: 'kpi-recovery',
       progressValue: netRecoveryRate,
       momChange: momRecoveryChange,
+      prevValue: prevPeriodData?.totalRecovery,
+      compChange: compRecoveryChange,
     },
     {
       title: 'Credit Outstanding',
@@ -304,6 +353,8 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       kpiClass: 'kpi-credit',
       progressValue: creditToSalesRatio,
       momChange: momCreditChange,
+      prevValue: prevPeriodData?.totalCredit,
+      compChange: compCreditChange,
     },
     {
       title: 'Recovery Rate',
@@ -318,6 +369,8 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       kpiClass: 'kpi-rate',
       progressValue: netRecoveryRate,
       momChange: null,
+      prevValue: undefined,
+      compChange: null,
     },
   ];
 
@@ -471,6 +524,15 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
               />
             </PopoverContent>
           </Popover>
+          <Button
+            variant={compareMode ? 'default' : 'outline'}
+            size="sm"
+            className={`h-9 gap-1.5 text-xs ${compareMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'border-emerald-200 dark:border-emerald-800'}`}
+            onClick={() => setCompareMode(!compareMode)}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Compare
+          </Button>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { fetchData(); setCountdown(60); }} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -515,6 +577,16 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                     </div>
                   </div>
                   <div className="text-2xl font-bold tracking-tight mb-2 kpi-value-pulse animate-count-up">{kpi.value}</div>
+                  {compareMode && kpi.prevValue !== undefined && kpi.compChange !== null && (
+                    <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted/50 border border-border/50">
+                      <span className="text-[10px] text-muted-foreground">Prev:</span>
+                      <span className="text-xs font-mono font-medium text-muted-foreground">{formatPKR(kpi.prevValue)}</span>
+                      <span className={`text-[11px] font-bold flex items-center gap-0.5 ${kpi.compChange >= 0 ? (kpi.title === 'Credit Outstanding' ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-600 dark:text-emerald-400') : (kpi.title === 'Credit Outstanding' ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400')}`}>
+                        {kpi.compChange >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        {kpi.compChange >= 0 ? '+' : ''}{kpi.compChange.toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
                   <Progress
                     value={Math.min(kpi.progressValue, 100)}
                     className="h-1.5 mb-2"
@@ -592,7 +664,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                   <Button
                     variant="outline"
                     className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                    onClick={() => onNavigate('daily')}
+                    onClick={() => onNavigate('daily-summary')}
                   >
                     <CalendarIcon className="w-4 h-4" /> Daily Summary
                   </Button>
@@ -1081,18 +1153,96 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
         </Card>
       )}
 
-      {/* Dashboard Empty State */}
+      {/* Dashboard Empty State - Enhanced with decorative illustration and getting started cards */}
       {!loading && !data?.summary?.entryCount && (
-        <Card className="animate-fade-in-up border-emerald-200/50 dark:border-emerald-800/50">
-          <CardContent className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 flex items-center justify-center mb-4">
-              <BarChart3 className="w-10 h-10 text-emerald-300 dark:text-emerald-700" />
+        <Card className="animate-fade-in-up border-emerald-200/50 dark:border-emerald-800/50 overflow-hidden">
+          <CardContent className="py-10 px-6">
+            {/* Decorative SVG illustration */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                {/* Animated background circles */}
+                <div className="absolute -inset-4 bg-gradient-to-br from-emerald-100/60 to-sky-100/40 dark:from-emerald-900/30 dark:to-sky-900/20 rounded-full animate-float-slow" />
+                <div className="absolute -inset-2 bg-gradient-to-tr from-emerald-50/40 to-emerald-100/20 dark:from-emerald-950/20 dark:to-emerald-900/10 rounded-full animate-float-delayed" />
+                {/* Main illustration */}
+                <svg width="160" height="120" viewBox="0 0 160 120" fill="none" className="relative z-10 animate-float">
+                  {/* Dashboard screen */}
+                  <rect x="20" y="15" width="120" height="80" rx="8" fill="currentColor" className="text-emerald-100 dark:text-emerald-900/60" />
+                  <rect x="24" y="19" width="112" height="72" rx="6" fill="currentColor" className="text-white dark:text-emerald-950" />
+                  {/* Top bar */}
+                  <rect x="24" y="19" width="112" height="14" rx="6" fill="currentColor" className="text-emerald-200 dark:text-emerald-800/60" />
+                  <circle cx="33" cy="26" r="2" fill="currentColor" className="text-red-400" />
+                  <circle cx="40" cy="26" r="2" fill="currentColor" className="text-amber-400" />
+                  <circle cx="47" cy="26" r="2" fill="currentColor" className="text-emerald-400" />
+                  {/* KPI mini cards */}
+                  <rect x="30" y="38" width="22" height="16" rx="2" fill="currentColor" className="text-emerald-50 dark:text-emerald-900/40" />
+                  <rect x="55" y="38" width="22" height="16" rx="2" fill="currentColor" className="text-sky-50 dark:text-sky-900/40" />
+                  <rect x="80" y="38" width="22" height="16" rx="2" fill="currentColor" className="text-red-50 dark:text-red-900/40" />
+                  <rect x="105" y="38" width="22" height="16" rx="2" fill="currentColor" className="text-amber-50 dark:text-amber-900/40" />
+                  {/* Mini bar lines inside KPI cards */}
+                  <rect x="33" y="42" width="16" height="2" rx="1" fill="currentColor" className="text-emerald-300 dark:text-emerald-700" />
+                  <rect x="33" y="48" width="10" height="2" rx="1" fill="currentColor" className="text-emerald-200 dark:text-emerald-800" />
+                  <rect x="58" y="42" width="16" height="2" rx="1" fill="currentColor" className="text-sky-300 dark:text-sky-700" />
+                  <rect x="58" y="48" width="10" height="2" rx="1" fill="currentColor" className="text-sky-200 dark:text-sky-800" />
+                  {/* Mini chart area */}
+                  <path d="M30 72 L40 66 L55 70 L70 62 L85 64 L100 58 L115 60 L125 55" stroke="currentColor" className="text-emerald-400 dark:text-emerald-600" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M30 72 L40 66 L55 70 L70 62 L85 64 L100 58 L115 60 L125 55 L125 75 L30 75 Z" fill="currentColor" className="text-emerald-100 dark:text-emerald-900/30" />
+                  {/* Stand/base */}
+                  <rect x="65" y="95" width="30" height="4" rx="2" fill="currentColor" className="text-emerald-200 dark:text-emerald-800" />
+                  <rect x="75" y="91" width="10" height="6" rx="1" fill="currentColor" className="text-emerald-200 dark:text-emerald-800" />
+                  {/* Sparkle dots */}
+                  <circle cx="145" cy="20" r="1.5" fill="currentColor" className="text-amber-400 animate-gentle-pulse" />
+                  <circle cx="15" cy="40" r="1" fill="currentColor" className="text-emerald-400 animate-gentle-pulse" />
+                  <circle cx="150" cy="55" r="1.5" fill="currentColor" className="text-sky-400 animate-gentle-pulse" />
+                </svg>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-1">No data for this period</h3>
-            <p className="text-sm text-muted-foreground mb-4">Add entries to see your dashboard come alive with insights</p>
-            <div className="flex items-center gap-3">
+
+            <div className="text-center mb-8">
+              <h3 className="text-xl font-bold text-foreground mb-2 gradient-text-emerald">No data for this period</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">Add entries to see your dashboard come alive with insights, charts, and performance metrics.</p>
+            </div>
+
+            {/* Getting Started Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
+              <div className="getting-started-card p-4 rounded-xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/50 text-center">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white mx-auto mb-3 shadow-md animate-fade-in-up stagger-1">
+                  <span className="text-sm font-bold">1</span>
+                </div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200 mb-1">Add Order Bookers</p>
+                <p className="text-[10px] text-muted-foreground">Set up your sales team first</p>
+                {onNavigate && (
+                  <Button variant="link" size="sm" className="text-emerald-600 dark:text-emerald-400 text-[10px] h-6 mt-1" onClick={() => onNavigate('settings')}>
+                    Go to Settings →
+                  </Button>
+                )}
+              </div>
+              <div className="getting-started-card p-4 rounded-xl bg-gradient-to-br from-sky-50/80 to-sky-100/50 dark:from-sky-950/30 dark:to-sky-900/20 border border-sky-200/50 dark:border-sky-800/50 text-center">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white mx-auto mb-3 shadow-md animate-fade-in-up stagger-2">
+                  <span className="text-sm font-bold">2</span>
+                </div>
+                <p className="text-xs font-semibold text-sky-800 dark:text-sky-200 mb-1">Add Companies</p>
+                <p className="text-[10px] text-muted-foreground">Register distribution companies</p>
+                {onNavigate && (
+                  <Button variant="link" size="sm" className="text-sky-600 dark:text-sky-400 text-[10px] h-6 mt-1" onClick={() => onNavigate('settings')}>
+                    Go to Settings →
+                  </Button>
+                )}
+              </div>
+              <div className="getting-started-card p-4 rounded-xl bg-gradient-to-br from-amber-50/80 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200/50 dark:border-amber-800/50 text-center">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white mx-auto mb-3 shadow-md animate-fade-in-up stagger-3">
+                  <span className="text-sm font-bold">3</span>
+                </div>
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1">Record Entries</p>
+                <p className="text-[10px] text-muted-foreground">Start tracking daily sales</p>
+                <Button variant="link" size="sm" className="text-amber-600 dark:text-amber-400 text-[10px] h-6 mt-1" onClick={() => setQuickEntryOpen(true)}>
+                  Add Entry →
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
               <Button
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                className="gap-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-md shadow-emerald-200/50 dark:shadow-emerald-900/30 btn-glow font-semibold"
                 onClick={() => setQuickEntryOpen(true)}
               >
                 <Plus className="w-4 h-4" /> Add Entry

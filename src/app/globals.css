@@ -1514,3 +1514,410 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .scale-on-hover:active {
   transform: scale(0.98);
 }
+
+/* ===== ROUND 2 STYLING ENHANCEMENTS (Task ID: 4) ===== */
+
+/* Skeleton wave - multi-color gradient shimmer */
+@keyframes skeletonWave {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-wave {
+  background: linear-gradient(90deg,
+    oklch(0.93 0.01 155) 0%,
+    oklch(0.88 0.02 155) 15%,
+    oklch(0.83 0.04 155) 25%,
+    oklch(0.78 0.06 155) 35%,
+    oklch(0.83 0.04 155) 45%,
+    oklch(0.88 0.02 155) 55%,
+    oklch(0.93 0.01 155) 70%,
+    oklch(0.93 0.01 155) 100%);
+  background-size: 200% 100%;
+  animation: skeletonWave 2.5s ease-in-out infinite;
+}
+.dark .skeleton-wave {
+  background: linear-gradient(90deg,
+    oklch(0.22 0.02 155) 0%,
+    oklch(0.28 0.03 155) 15%,
+    oklch(0.34 0.05 155) 25%,
+    oklch(0.38 0.07 155) 35%,
+    oklch(0.34 0.05 155) 45%,
+    oklch(0.28 0.03 155) 55%,
+    oklch(0.22 0.02 155) 70%,
+    oklch(0.22 0.02 155) 100%);
+  background-size: 200% 100%;
+  animation: skeletonWave 2.5s ease-in-out infinite;
+}
+
+/* Success flash - green flash feedback on save */
+@keyframes successFlash {
+  0% { background-color: rgba(5, 150, 105, 0); box-shadow: none; }
+  20% { background-color: rgba(5, 150, 105, 0.15); box-shadow: 0 0 20px -4px rgba(5, 150, 105, 0.3); }
+  100% { background-color: rgba(5, 150, 105, 0); box-shadow: none; }
+}
+.success-flash {
+  animation: successFlash 1s ease-out;
+}
+@keyframes successCheckmark {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.success-checkmark {
+  animation: successCheckmark 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Error shake - shake animation for error state */
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-4px); }
+  20% { transform: translateX(4px); }
+  30% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+.error-shake {
+  animation: errorShake 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Error field state - red border glow for invalid fields */
+.error-field {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15), 0 0 12px -2px rgba(239, 68, 68, 0.2) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dark .error-field {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15), 0 0 12px -2px rgba(248, 113, 113, 0.2) !important;
+}
+
+/* Tab indicator - animated tab underline */
+.tab-indicator {
+  position: relative;
+}
+.tab-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #059669, #34d399);
+  border-radius: 1px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-indicator[data-state="active"]::after {
+  width: 70%;
+  left: 15%;
+}
+
+/* Password strength classes with color transitions */
+.password-strength-weak {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
+}
+.password-strength-medium {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
+}
+.password-strength-strong {
+  background: linear-gradient(90deg, #059669, #34d399);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
+}
+.password-strength-label-weak {
+  color: #ef4444;
+  transition: color 0.3s ease;
+}
+.dark .password-strength-label-weak {
+  color: #f87171;
+}
+.password-strength-label-medium {
+  color: #f59e0b;
+  transition: color 0.3s ease;
+}
+.dark .password-strength-label-medium {
+  color: #fbbf24;
+}
+.password-strength-label-strong {
+  color: #059669;
+  transition: color 0.3s ease;
+}
+.dark .password-strength-label-strong {
+  color: #34d399;
+}
+
+/* Glow utility classes */
+.glow-red {
+  box-shadow: 0 0 12px -2px rgba(239, 68, 68, 0.35), 0 0 4px rgba(239, 68, 68, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+.dark .glow-red {
+  box-shadow: 0 0 12px -2px rgba(248, 113, 113, 0.25), 0 0 4px rgba(248, 113, 113, 0.12);
+}
+.glow-amber {
+  box-shadow: 0 0 12px -2px rgba(245, 158, 11, 0.35), 0 0 4px rgba(245, 158, 11, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+.dark .glow-amber {
+  box-shadow: 0 0 12px -2px rgba(251, 191, 36, 0.25), 0 0 4px rgba(251, 191, 36, 0.12);
+}
+.glow-sky {
+  box-shadow: 0 0 12px -2px rgba(14, 165, 233, 0.35), 0 0 4px rgba(14, 165, 233, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+.dark .glow-sky {
+  box-shadow: 0 0 12px -2px rgba(56, 189, 248, 0.25), 0 0 4px rgba(56, 189, 248, 0.12);
+}
+
+/* Outstanding badge with glow effects */
+.badge-glow-high {
+  box-shadow: 0 0 8px -1px rgba(239, 68, 68, 0.4);
+  animation: badgeGlowPulse 2s ease-in-out infinite;
+}
+@keyframes badgeGlowPulse {
+  0%, 100% { box-shadow: 0 0 8px -1px rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 14px -1px rgba(239, 68, 68, 0.55); }
+}
+.badge-glow-medium {
+  box-shadow: 0 0 8px -1px rgba(245, 158, 11, 0.4);
+}
+.badge-glow-low {
+  box-shadow: 0 0 8px -1px rgba(5, 150, 105, 0.3);
+}
+
+/* OB card expand slide-down animation */
+@keyframes obExpandDown {
+  from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+  to { opacity: 1; max-height: 500px; transform: translateY(0); }
+}
+.ob-expand-animate {
+  animation: obExpandDown 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+}
+
+/* Settings table row hover effects */
+.settings-row-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.settings-row-hover:hover {
+  transform: scale(1.005);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
+}
+.dark .settings-row-hover:hover {
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.25);
+}
+
+/* Tab content transition */
+@keyframes tabContentEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tab-content-animate {
+  animation: tabContentEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Gradient progress bar for settle dialog */
+.gradient-progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: oklch(0.93 0.01 155);
+  overflow: hidden;
+  position: relative;
+}
+.dark .gradient-progress-bar {
+  background: oklch(0.25 0.02 155);
+}
+.gradient-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #059669, #34d399);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.gradient-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+  animation: progressShimmer 2s ease-in-out infinite;
+}
+@keyframes progressShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Getting started card hover effect */
+.getting-started-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.getting-started-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.05) 0%, transparent 60%);
+  transition: opacity 0.3s ease;
+}
+.getting-started-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.12);
+}
+.getting-started-card:hover::after {
+  opacity: 1;
+}
+.dark .getting-started-card:hover {
+  box-shadow: 0 8px 24px -4px rgba(52, 211, 153, 0.08);
+}
+
+/* Enhanced calculation summary visual grouping */
+.calc-group {
+  position: relative;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(5, 150, 105, 0.1);
+  transition: all 0.2s ease;
+}
+.dark .calc-group {
+  background: rgba(0, 0, 0, 0.15);
+  border-color: rgba(52, 211, 153, 0.1);
+}
+.calc-group:hover {
+  border-color: rgba(5, 150, 105, 0.2);
+  box-shadow: 0 2px 8px -2px rgba(5, 150, 105, 0.08);
+}
+
+/* Improved print styles */
+@media print {
+  /* Ensure charts print correctly */
+  .recharts-wrapper,
+  .recharts-surface {
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+  .recharts-responsive-container {
+    height: auto !important;
+    max-height: 300px !important;
+  }
+  /* Ensure tables print correctly */
+  .table-enhanced {
+    page-break-inside: auto !important;
+  }
+  .table-enhanced thead {
+    display: table-header-group !important;
+  }
+  .table-enhanced tbody tr {
+    page-break-inside: avoid !important;
+  }
+  /* Remove interactive elements styling for print */
+  .card-hover, .card-hover:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  .kpi-card::before, .kpi-card::after {
+    display: none !important;
+  }
+  .animated-border::before {
+    display: none !important;
+  }
+  /* Hide non-printable decorations */
+  .fab-pulse, .fab-pulse:hover,
+  .btn-glow::after,
+  .animate-float, .animate-float-delayed, .animate-float-slow {
+    animation: none !important;
+  }
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Ensure badges are visible */
+  .badge-animated, .badge-glow-high, .badge-glow-medium, .badge-glow-low {
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  /* Scale down for print fitting */
+  .grid {
+    page-break-inside: avoid;
+  }
+}
+
+/* ===== STYLING IMPROVEMENTS ROUND 2 (Task ID: 4) ===== */
+
+/* Success flash animation */
+@keyframes successFlash {
+  0% { background-color: rgba(5, 150, 105, 0.2); }
+  100% { background-color: transparent; }
+}
+.success-flash {
+  animation: successFlash 1s ease-out;
+}
+
+/* Error shake animation */
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.error-shake {
+  animation: errorShake 0.3s ease-in-out;
+}
+
+/* Password strength bar */
+.password-strength-bar {
+  height: 4px;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+.password-strength-weak { background: #dc2626; width: 33%; }
+.password-strength-medium { background: #d97706; width: 66%; }
+.password-strength-strong { background: #059669; width: 100%; }
+
+/* Glow utilities */
+.glow-red { box-shadow: 0 0 12px rgba(220, 38, 38, 0.3); }
+.glow-amber { box-shadow: 0 0 12px rgba(217, 119, 6, 0.3); }
+.glow-sky { box-shadow: 0 0 12px rgba(2, 132, 199, 0.3); }
+.glow-emerald { box-shadow: 0 0 12px rgba(5, 150, 105, 0.3); }
+
+/* Tab indicator animation */
+.tab-indicator {
+  position: relative;
+}
+.tab-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #059669, #34d399);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.tab-indicator[aria-selected="true"]::after,
+.tab-indicator[data-state="active"]::after {
+  transform: scaleX(1);
+}
+
+/* Floating action bar */
+.floating-action-bar {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}

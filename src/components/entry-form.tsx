@@ -72,6 +72,8 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingRefs, setLoadingRefs] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [errorShake, setErrorShake] = useState(false);
 
   const [date, setDate] = useState<Date>(editEntry ? new Date(editEntry.date) : new Date());
   const [orderBookerId, setOrderBookerId] = useState(editEntry?.orderBookerId || '');
@@ -174,6 +176,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   const handleSave = async () => {
     if (!orderBookerId) {
       toast.error('Please select an Order Booker');
+      triggerErrorShake();
       return;
     }
 
@@ -184,6 +187,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
 
     if (!companyId) {
       toast.error('Please select a Company');
+      triggerErrorShake();
       return;
     }
 
@@ -216,6 +220,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
       }
 
       if (res.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 1200);
+        setErrorShake(false);
         toast.success(editEntry ? 'Entry updated successfully' : 'Entry created successfully');
         if (!editEntry) {
           setSummaryAmount(0);
@@ -229,9 +236,11 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to save entry');
+        triggerErrorShake();
       }
     } catch {
       toast.error('Failed to save entry');
+      triggerErrorShake();
     } finally {
       setSaving(false);
     }
@@ -282,6 +291,8 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
     setSaving(false);
 
     if (successCount > 0) {
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 1200);
       toast.success(`${successCount} entr${successCount === 1 ? 'y' : 'ies'} created successfully${failCount > 0 ? `, ${failCount} failed (may already exist)` : ''}`);
       // Reset bulk rows
       setBulkRows(prev => prev.map(r => ({ ...r, summaryAmount: 0, stockReturn: 0, cashReceived: 0, oldRecovery: 0 })));
@@ -289,6 +300,11 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
     } else {
       toast.error('Failed to create any entries. They may already exist for this date.');
     }
+  };
+
+  const triggerErrorShake = () => {
+    setErrorShake(true);
+    setTimeout(() => setErrorShake(false), 400);
   };
 
   const handleReset = () => {
@@ -308,7 +324,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
     setBulkRows(prev => prev.map(r => r.companyId === companyId ? { ...r, [field]: value } : r));
   };
 
-  const numField = (label: string, sublabel: string, value: number, onChange: (v: number) => void, editable = true) => (
+  const numField = (label: string, sublabel: string, value: number, onChange: (v: number) => void, editable = true, hasError = false) => (
     <div className="space-y-1.5">
       <Label className="text-xs font-medium flex items-center gap-1.5">
         {label}
@@ -324,7 +340,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
           value={value || ''}
           onChange={(e) => onChange(Number(e.target.value) || 0)}
           readOnly={!editable}
-          className={`${!editable ? 'pl-12 bg-muted/50 border-dashed font-mono text-muted-foreground' : 'pl-12 font-mono'} h-10 transition-colors`}
+          className={`${!editable ? 'pl-12 bg-muted/50 border-dashed font-mono text-muted-foreground' : 'pl-12 font-mono'} h-10 transition-colors ${hasError ? 'error-field' : ''}`}
         />
       </div>
     </div>
@@ -351,11 +367,18 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className={`space-y-6 p-4 md:p-6 transition-all duration-300 ${saveSuccess ? 'success-flash' : ''} ${errorShake ? 'error-shake' : ''}`}>
       <div className="animate-fade-in-up">
-        <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
-          {editEntry ? 'Edit Entry' : 'New Entry'}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+            {editEntry ? 'Edit Entry' : 'New Entry'}
+          </h1>
+          {saveSuccess && (
+            <span className="success-checkmark inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+              <CheckCircle2 className="w-4 h-4" /> Saved!
+            </span>
+          )}
+        </div>
         <p className="text-muted-foreground text-sm">
           {editEntry ? 'Update the distribution entry details' : 'Record a new distribution entry'}
         </p>
@@ -667,9 +690,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Order Booker</Label>
+                  <Label className="text-xs font-medium">Order Booker {!orderBookerId && errorShake ? <span className="text-red-500">*</span> : ''}</Label>
                   <Select value={orderBookerId} onValueChange={setOrderBookerId}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className={`h-10 ${!orderBookerId && errorShake ? 'glow-red border-red-400 dark:border-red-600' : ''}`}>
                       <SelectValue placeholder="Select OB" />
                     </SelectTrigger>
                     <SelectContent>
@@ -683,9 +706,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Company</Label>
+                  <Label className="text-xs font-medium">Company {!companyId && errorShake ? <span className="text-red-500">*</span> : ''}</Label>
                   <Select value={companyId} onValueChange={setCompanyId}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className={`h-10 ${!companyId && errorShake ? 'glow-red border-red-400 dark:border-red-600' : ''}`}>
                       <SelectValue placeholder="Select Company" />
                     </SelectTrigger>
                     <SelectContent>
@@ -760,27 +783,38 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
               </div>
             </div>
 
-            {/* Calculation Summary */}
+            {/* Calculation Summary - Enhanced with visual grouping */}
             <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 space-y-3">
               <h4 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
                 <Calculator className="w-4 h-4" />
                 Calculation Summary
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 rounded-xl bg-white/70 dark:bg-black/20 border-l-[3px] border-emerald-500 shadow-sm">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
+              {/* Flow diagram */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white/40 dark:bg-black/10 text-[10px] flex-wrap">
+                <span className="font-mono font-medium">{formatPKR(summaryAmount)}</span>
+                <span className="text-muted-foreground">summary</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-mono font-medium">{formatPKR(stockReturn)}</span>
+                <span className="text-muted-foreground">returns</span>
+                <ArrowRight className="w-3 h-3 text-emerald-500 flow-arrow" />
+                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{formatPKR(postedSummary)}</span>
+                <span className="text-muted-foreground">posted</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="calc-group border-l-[3px] border-emerald-500">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
                   <p className="text-sm font-mono font-bold mt-0.5">{formatPKR(postedSummary)}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/70 dark:bg-black/20 border-l-[3px] border-red-500 shadow-sm">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Credit Posted</p>
+                <div className="calc-group border-l-[3px] border-red-500">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Credit Posted</p>
                   <p className="text-sm font-mono font-bold mt-0.5 text-red-600 dark:text-red-400">{formatPKR(creditPosted)}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/70 dark:bg-black/20 border-l-[3px] border-sky-500 shadow-sm">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
+                <div className="calc-group border-l-[3px] border-sky-500">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
                   <p className="text-sm font-mono font-bold mt-0.5">{formatPKR(oldRecovery)}</p>
                 </div>
-                <div className={`p-3 rounded-xl bg-white/70 dark:bg-black/20 border-l-[3px] shadow-sm ${closingBalance > 0 ? 'border-red-500' : 'border-emerald-500'}`}>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Closing Balance</p>
+                <div className={`calc-group border-l-[3px] ${closingBalance > 0 ? 'border-red-500' : 'border-emerald-500'} ${closingBalance > 0 ? 'glow-red' : 'glow-emerald'}`}>
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Closing Balance</p>
                   <p className={`text-sm font-mono font-bold mt-0.5 ${closingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                     {formatPKR(closingBalance)}
                   </p>
