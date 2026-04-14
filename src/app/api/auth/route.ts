@@ -38,7 +38,27 @@ export async function POST(request: NextRequest) {
       where: { username },
     })
 
-    if (!admin || admin.password !== password) {
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    // Support both plaintext (legacy) and bcrypt passwords
+    let passwordValid = false
+    if (admin.password === password) {
+      passwordValid = true
+    } else {
+      try {
+        const bcrypt = await import('bcryptjs')
+        passwordValid = await bcrypt.compare(password, admin.password)
+      } catch {
+        passwordValid = false
+      }
+    }
+
+    if (!passwordValid) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -91,17 +111,41 @@ export async function PUT(request: NextRequest) {
       where: { id: session.id },
     })
 
-    if (!admin || admin.password !== currentPassword) {
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Admin not found' },
+        { status: 404 }
+      )
+    }
+
+    // Support both plaintext (legacy) and bcrypt passwords
+    let passwordValid = false
+    if (admin.password === currentPassword) {
+      passwordValid = true
+    } else {
+      try {
+        const bcrypt = await import('bcryptjs')
+        passwordValid = await bcrypt.compare(currentPassword, admin.password)
+      } catch {
+        passwordValid = false
+      }
+    }
+
+    if (!passwordValid) {
       return NextResponse.json(
         { error: 'Current password is incorrect' },
         { status: 401 }
       )
     }
 
+    // Hash the new password with bcrypt
+    const bcrypt = await import('bcryptjs')
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
     // Update password
     await db.admin.update({
       where: { id: session.id },
-      data: { password: newPassword },
+      data: { password: hashedPassword },
     })
 
     return NextResponse.json({ success: true, message: 'Password updated successfully' })

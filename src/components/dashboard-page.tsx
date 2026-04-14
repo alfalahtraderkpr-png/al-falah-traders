@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
@@ -101,6 +102,41 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
 
   // Quick Entry FAB
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+
+  // Live clock
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Chart type toggle
+  const [trendChartType, setTrendChartType] = useState<'line' | 'area'>('line');
+
+  // Auto-refresh
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [countdown, setCountdown] = useState(60);
+  const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    clockRef.current = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => { if (clockRef.current) clearInterval(clockRef.current); };
+  }, []);
+
+  // Auto-refresh countdown
+  useEffect(() => {
+    if (!autoRefresh) {
+      setCountdown(60);
+      return;
+    }
+    autoRefreshRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          fetchData();
+          return 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (autoRefreshRef.current) clearInterval(autoRefreshRef.current); };
+  }, [autoRefresh, fetchData]);
 
   // Daily Summary Banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -308,7 +344,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   }).filter(Boolean) as { obName: string; type: 'growth' | 'risk'; detail: string; rate: number; credit: number; sales: number }[];
 
   return (
-    <div className="space-y-6 p-4 md:p-6 relative">
+    <div className="space-y-6 p-4 md:p-6 relative section-gradient-dashboard min-h-screen">
       {/* Daily Summary Notification Banner */}
       {todaySummary && !bannerDismissed && (
         <div className="animate-fade-in-up bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl p-4 flex items-center justify-between shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
@@ -333,6 +369,50 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
           </Button>
         </div>
       )}
+
+      {/* Welcome Banner with Live Clock */}
+      <div className="welcome-banner rounded-2xl p-5 animate-fade-in-up">
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
+              <h2 className="text-lg font-bold text-emerald-900 dark:text-emerald-100">
+                {currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 17 ? 'Good Afternoon' : 'Good Evening'} 👋
+              </h2>
+            </div>
+            <p className="text-sm text-emerald-700/70 dark:text-emerald-300/70">
+              {format(currentTime, 'EEEE, MMMM dd, yyyy')}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Health Score */}
+            {!loading && data && (
+              <div className="flex items-center gap-2 bg-white/60 dark:bg-black/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-emerald-200/50 dark:border-emerald-800/50">
+                <div className="health-score-ring">
+                  <svg width="36" height="36" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-emerald-200 dark:text-emerald-800" />
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${(netRecoveryRate / 100) * 88} 88`} strokeLinecap="round" className={netRecoveryRate >= 70 ? 'text-emerald-500' : netRecoveryRate >= 40 ? 'text-amber-500' : 'text-red-500'} />
+                  </svg>
+                  <span className="absolute text-[8px] font-bold text-emerald-800 dark:text-emerald-200">{netRecoveryRate.toFixed(0)}%</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-200 uppercase tracking-wider">Health</p>
+                  <p className="text-xs font-bold text-emerald-900 dark:text-emerald-100">{netRecoveryRate >= 70 ? 'Excellent' : netRecoveryRate >= 40 ? 'Fair' : 'Needs Attention'}</p>
+                </div>
+              </div>
+            )}
+            {/* Live Clock */}
+            <div className="text-right bg-white/60 dark:bg-black/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-emerald-200/50 dark:border-emerald-800/50">
+              <p className="text-2xl font-mono font-bold text-emerald-900 dark:text-emerald-100 tabular-nums">
+                {format(currentTime, 'hh:mm:ss')}
+              </p>
+              <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 uppercase">
+                {format(currentTime, 'a')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Header with Date Picker */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -372,9 +452,22 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
               />
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchData} disabled={loading}>
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { fetchData(); setCountdown(60); }} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
+          {/* Auto-refresh toggle with countdown */}
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1 h-9 border border-emerald-200/50 dark:border-emerald-800/50">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${autoRefresh ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`}
+              aria-label={autoRefresh ? 'Disable auto-refresh' : 'Enable auto-refresh'}
+            >
+              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${autoRefresh ? 'left-4' : 'left-0.5'}`} />
+            </button>
+            <span className="text-[10px] font-mono text-muted-foreground tabular-nums min-w-[18px]">
+              {autoRefresh ? `${countdown}s` : 'Off'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -561,35 +654,107 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Daily Trend */}
+        {/* Daily Trend with Toggle */}
         <Card className="card-hover">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Daily Sales vs Recovery
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Daily Sales vs Recovery
+              </CardTitle>
+              <div className="flex items-center gap-1 bg-muted/50 rounded-md p-0.5">
+                <button
+                  className={`chart-toggle-btn ${trendChartType === 'line' ? 'active' : ''}`}
+                  onClick={() => setTrendChartType('line')}
+                >
+                  Line
+                </button>
+                <button
+                  className={`chart-toggle-btn ${trendChartType === 'area' ? 'active' : ''}`}
+                  onClick={() => setTrendChartType('area')}
+                >
+                  Area
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-64 w-full shimmer" />
             ) : (
               <ChartContainer config={trendChartConfig} className="h-64 w-full">
-                <LineChart data={data?.dailyTrend || []}>
-                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2.5} dot={false} />
-                  <Line type="monotone" dataKey="totalRecovery" stroke="#0284c7" strokeWidth={2.5} dot={false} />
-                </LineChart>
+                {trendChartType === 'line' ? (
+                  <LineChart data={data?.dailyTrend || []}>
+                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="totalRecovery" stroke="#0284c7" strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                ) : (
+                  <AreaChart data={data?.dailyTrend || []}>
+                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <defs>
+                      <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="recoveryGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} fill="url(#salesGradient)" />
+                    <Area type="monotone" dataKey="totalRecovery" stroke="#0284c7" strokeWidth={2} fill="url(#recoveryGradient)" />
+                  </AreaChart>
+                )}
               </ChartContainer>
             )}
           </CardContent>
         </Card>
 
-        {/* OB Performance Bar Chart */}
+        {/* Company Comparison Stacked Bar Chart */}
         <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Company Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-64 w-full shimmer" />
+            ) : (data?.companyBreakdown || []).length > 0 ? (
+              <ChartContainer config={obChartConfig} className="h-64 w-full">
+                <BarChart data={data?.companyBreakdown || []}>
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="totalSales" stackId="a" fill="#059669" radius={[0, 0, 0, 0]} name="Sales" />
+                  <Bar dataKey="totalRecovery" stackId="a" fill="#34d399" radius={[0, 0, 0, 0]} name="Recovery" />
+                  <Bar dataKey="totalCredit" stackId="a" fill="#fca5a5" radius={[4, 4, 0, 0]} name="Credit" />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                No company data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* OB Performance Bar Chart */}
+      {!loading && data && (data?.orderBookerBreakdown || []).length > 0 && (
+        <Card className="card-hover animate-fade-in-up">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -597,24 +762,20 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-64 w-full shimmer" />
-            ) : (
-              <ChartContainer config={obChartConfig} className="h-64 w-full">
-                <BarChart data={data?.orderBookerBreakdown || []}>
-                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="totalSales" fill="#059669" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="totalRecovery" fill="#0284c7" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ChartContainer>
-            )}
+            <ChartContainer config={obChartConfig} className="h-64 w-full">
+              <BarChart data={data?.orderBookerBreakdown || []}>
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="totalSales" fill="#059669" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="totalRecovery" fill="#0284c7" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* Company Distribution + Indicators */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -849,7 +1010,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       {/* Quick Entry FAB */}
       <button
         onClick={() => setQuickEntryOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white shadow-xl shadow-emerald-300/50 dark:shadow-emerald-900/50 flex items-center justify-center transition-all hover:scale-105 active:scale-95 no-print"
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white shadow-xl shadow-emerald-300/50 dark:shadow-emerald-900/50 flex items-center justify-center transition-all hover:scale-105 active:scale-95 no-print fab-pulse"
         aria-label="Quick Add Entry"
       >
         <Plus className="w-6 h-6" />

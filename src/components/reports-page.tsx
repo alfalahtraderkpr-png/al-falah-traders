@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles, CalendarIcon, RotateCcw } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
+import { TrendingUp, Building2, BarChart3, AlertTriangle, Printer, Download, DollarSign, Wallet, CreditCard, Target, Sparkles, CalendarIcon, RotateCcw, FileText, AreaChart as AreaChartIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -40,6 +40,9 @@ export default function ReportsPage() {
   const [obLoading, setOBLoading] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
   const [trendLoading, setTrendLoading] = useState(false);
+
+  // Chart type toggle for trend analysis
+  const [trendChartType, setTrendChartType] = useState<'line' | 'area'>('line');
 
   // Date range filter
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -165,7 +168,13 @@ export default function ReportsPage() {
 
   const handlePrint = () => {
     window.print();
-    toast.success('Print dialog opened');
+    toast.success('Print/PDF dialog opened');
+  };
+
+  const handleExportPDF = () => {
+    // Use window.print() with print-optimized CSS for PDF export
+    window.print();
+    toast.success('Use Save as PDF in the print dialog');
   };
 
   const StatCard = ({ title, value, color = 'emerald', subtext, icon: Icon }: { title: string; value: string; color?: string; subtext?: string; icon?: React.ElementType }) => {
@@ -259,6 +268,10 @@ export default function ReportsPage() {
           <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800" onClick={handlePrint}>
             <Printer className="w-3.5 h-3.5" />
             Print
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 h-9 no-print border-emerald-200 dark:border-emerald-800 btn-glow" onClick={handleExportPDF}>
+            <FileText className="w-3.5 h-3.5" />
+            PDF
           </Button>
         </div>
       </div>
@@ -583,25 +596,56 @@ export default function ReportsPage() {
                         </div>
                         Overall Performance Trend
                       </CardTitle>
-                      <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                        <Sparkles className="w-3 h-3 mr-1" /> All Data
-                      </Badge>
+                      <div className="flex items-center gap-2 no-print">
+                        <div className="flex items-center rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden">
+                          <button
+                            className={`chart-toggle-btn ${trendChartType === 'line' ? 'active' : ''}`}
+                            onClick={() => setTrendChartType('line')}
+                          >
+                            <TrendingUp className="w-3 h-3" />
+                            <span className="text-[10px]">Line</span>
+                          </button>
+                          <button
+                            className={`chart-toggle-btn ${trendChartType === 'area' ? 'active' : ''}`}
+                            onClick={() => setTrendChartType('area')}
+                          >
+                            <AreaChartIcon className="w-3 h-3" />
+                            <span className="text-[10px]">Area</span>
+                          </button>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                          <Sparkles className="w-3 h-3 mr-1" /> All Data
+                        </Badge>
+                      </div>
                     </div>
                     <CardDescription className="text-xs">Sales, recovery, and credit trends over time</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="chart-container-rounded">
                       <ChartContainer config={trendChartConfig} className="h-64 w-full">
-                        <LineChart data={trendDaily}>
-                          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} dot={false} name="Sales" />
-                          <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} dot={false} name="Recovery" />
-                          <Line type="monotone" dataKey="totalCredit" stroke="#dc2626" strokeWidth={2} dot={false} name="Credit" />
-                        </LineChart>
+                        {trendChartType === 'area' ? (
+                          <AreaChart data={trendDaily}>
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                            <YAxis tick={{ fontSize: 10 }} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Area type="monotone" dataKey="totalSales" stroke="#059669" fill="#059669" fillOpacity={0.15} strokeWidth={2} name="Sales" />
+                            <Area type="monotone" dataKey="totalRecovery" stroke="#d97706" fill="#d97706" fillOpacity={0.15} strokeWidth={2} name="Recovery" />
+                            <Area type="monotone" dataKey="totalCredit" stroke="#dc2626" fill="#dc2626" fillOpacity={0.15} strokeWidth={2} name="Credit" />
+                          </AreaChart>
+                        ) : (
+                          <LineChart data={trendDaily}>
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                            <YAxis tick={{ fontSize: 10 }} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Line type="monotone" dataKey="totalSales" stroke="#059669" strokeWidth={2} dot={false} name="Sales" />
+                            <Line type="monotone" dataKey="totalRecovery" stroke="#d97706" strokeWidth={2} dot={false} name="Recovery" />
+                            <Line type="monotone" dataKey="totalCredit" stroke="#dc2626" strokeWidth={2} dot={false} name="Credit" />
+                          </LineChart>
+                        )}
                       </ChartContainer>
                     </div>
                   </CardContent>

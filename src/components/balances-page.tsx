@@ -12,10 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import {
   Wallet, Search, RefreshCw, ArrowRight, CheckCircle, AlertTriangle, Clock,
-  TrendingDown, ChevronDown, ChevronUp, HandCoins,
+  TrendingDown, ChevronDown, ChevronUp, HandCoins, PieChart as PieChartIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { PieChart, Pie, Cell } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface CompanyBalance {
   companyId: string;
@@ -223,48 +225,128 @@ export default function BalancesPage() {
       {/* Overall Summary */}
       {!loading && data && (
         <>
-          {/* Overall Total */}
-          <Card className={`card-hover animate-fade-in-up stagger-2 border ${getOutstandingColor(data.overallTotal).border}`}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md">
-                    <Wallet className="w-4 h-4" />
+          {/* Overall Total + Aging Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className={`lg:col-span-2 card-hover animate-fade-in-up stagger-2 border ${getOutstandingColor(data.overallTotal).border}`}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold">Total Outstanding</h3>
+                      <p className="text-[10px] text-muted-foreground">Across all order bookers</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Total Outstanding</h3>
-                    <p className="text-[10px] text-muted-foreground">Across all order bookers</p>
+                  <div className="text-right">
+                    <p className={`text-2xl font-bold ${getOutstandingColor(data.overallTotal).text}`}>
+                      {formatPKR(data.overallTotal)}
+                    </p>
+                    {getOutstandingBadge(data.overallTotal)}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-2xl font-bold ${getOutstandingColor(data.overallTotal).text}`}>
-                    {formatPKR(data.overallTotal)}
-                  </p>
-                  {getOutstandingBadge(data.overallTotal)}
-                </div>
-              </div>
 
-              {/* Aging Analysis */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/50 dark:border-emerald-800/50">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current (0-30d)</p>
-                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{formatPKR(data.overallAging.current)}</p>
+                {/* Aging Analysis */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/50 dark:border-emerald-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current (0-30d)</p>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{formatPKR(data.overallAging.current)}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">30-60 Days</p>
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-300 mt-0.5">{formatPKR(data.overallAging.thirtyToSixty)}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-orange-50/80 dark:bg-orange-950/40 border border-orange-200/50 dark:border-orange-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">60-90 Days</p>
+                    <p className="text-sm font-bold text-orange-700 dark:text-orange-300 mt-0.5">{formatPKR(data.overallAging.sixtyToNinety)}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-red-50/80 dark:bg-red-950/40 border border-red-200/50 dark:border-red-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">90+ Days</p>
+                    <p className="text-sm font-bold text-red-700 dark:text-red-300 mt-0.5">{formatPKR(data.overallAging.overNinety)}</p>
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-800/50">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">30-60 Days</p>
-                  <p className="text-sm font-bold text-amber-700 dark:text-amber-300 mt-0.5">{formatPKR(data.overallAging.thirtyToSixty)}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-orange-50/80 dark:bg-orange-950/40 border border-orange-200/50 dark:border-orange-800/50">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">60-90 Days</p>
-                  <p className="text-sm font-bold text-orange-700 dark:text-orange-300 mt-0.5">{formatPKR(data.overallAging.sixtyToNinety)}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-red-50/80 dark:bg-red-950/40 border border-red-200/50 dark:border-red-800/50">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">90+ Days</p>
-                  <p className="text-sm font-bold text-red-700 dark:text-red-300 mt-0.5">{formatPKR(data.overallAging.overNinety)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
+                {/* Recovery Progress */}
+                {data.overallTotal > 0 && (() => {
+                  const totalAging = data.overallAging.current + data.overallAging.thirtyToSixty + data.overallAging.sixtyToNinety + data.overallAging.overNinety;
+                  const currentPct = totalAging > 0 ? (data.overallAging.current / totalAging) * 100 : 0;
+                  const thirtySixtyPct = totalAging > 0 ? (data.overallAging.thirtyToSixty / totalAging) * 100 : 0;
+                  const sixtyNinetyPct = totalAging > 0 ? (data.overallAging.sixtyToNinety / totalAging) * 100 : 0;
+                  const overNinetyPct = totalAging > 0 ? (data.overallAging.overNinety / totalAging) * 100 : 0;
+                  return (
+                    <div className="mt-4 pt-3 border-t border-emerald-100 dark:border-emerald-800/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Aging Distribution</p>
+                        <span className="text-[10px] text-muted-foreground">{formatPKR(totalAging)} total</span>
+                      </div>
+                      <div className="flex h-3 rounded-full overflow-hidden bg-muted/50">
+                        {currentPct > 0 && <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${currentPct}%` }} title={`Current: ${currentPct.toFixed(0)}%`} />}
+                        {thirtySixtyPct > 0 && <div className="bg-amber-500 transition-all duration-500" style={{ width: `${thirtySixtyPct}%` }} title={`30-60d: ${thirtySixtyPct.toFixed(0)}%`} />}
+                        {sixtyNinetyPct > 0 && <div className="bg-orange-500 transition-all duration-500" style={{ width: `${sixtyNinetyPct}%` }} title={`60-90d: ${sixtyNinetyPct.toFixed(0)}%`} />}
+                        {overNinetyPct > 0 && <div className="bg-red-500 transition-all duration-500" style={{ width: `${overNinetyPct}%` }} title={`90+d: ${overNinetyPct.toFixed(0)}%`} />}
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 flex-wrap">
+                        <span className="flex items-center gap-1 text-[9px]"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Current {currentPct.toFixed(0)}%</span>
+                        <span className="flex items-center gap-1 text-[9px]"><span className="w-2 h-2 rounded-full bg-amber-500" /> 30-60d {thirtySixtyPct.toFixed(0)}%</span>
+                        <span className="flex items-center gap-1 text-[9px]"><span className="w-2 h-2 rounded-full bg-orange-500" /> 60-90d {sixtyNinetyPct.toFixed(0)}%</span>
+                        <span className="flex items-center gap-1 text-[9px]"><span className="w-2 h-2 rounded-full bg-red-500" /> 90+d {overNinetyPct.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            {/* Aging Distribution Pie Chart */}
+            <Card className="card-hover animate-fade-in-up stagger-3 border border-emerald-200 dark:border-emerald-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <PieChartIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Aging Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center">
+                {data.overallTotal > 0 ? (() => {
+                  const agingData = [
+                    { name: 'Current (0-30d)', value: data.overallAging.current, color: '#059669' },
+                    { name: '30-60 Days', value: data.overallAging.thirtyToSixty, color: '#d97706' },
+                    { name: '60-90 Days', value: data.overallAging.sixtyToNinety, color: '#ea580c' },
+                    { name: '90+ Days', value: data.overallAging.overNinety, color: '#dc2626' },
+                  ].filter(d => d.value > 0);
+                  const agingConfig: Record<string, { label: string; color: string }> = {};
+                  agingData.forEach(d => { agingConfig[d.name] = { label: d.name, color: d.color }; });
+                  return (
+                    <ChartContainer config={agingConfig} className="h-52 w-full">
+                      <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Pie
+                          data={agingData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={75}
+                          dataKey="value"
+                          nameKey="name"
+                          label={({ name, percent }: { name: string; percent: number }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={{ strokeWidth: 1 }}
+                          strokeWidth={2}
+                        >
+                          {agingData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                  );
+                })() : (
+                  <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">
+                    No outstanding balances
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* OB Balance Cards */}
           <div className="space-y-3">

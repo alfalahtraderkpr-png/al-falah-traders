@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -58,6 +58,17 @@ export default function EntriesTable() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Expandable rows
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  // Pagination
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Duplicate entry
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateEntry, setDuplicateEntry] = useState<Entry | null>(null);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -125,6 +136,42 @@ export default function EntriesTable() {
     setEditDialogOpen(true);
   };
 
+  const handleDuplicate = (entry: Entry) => {
+    setDuplicateEntry(entry);
+    setDuplicateDialogOpen(true);
+  };
+
+  const handleDuplicateSave = async () => {
+    if (!duplicateEntry) return;
+    try {
+      const payload = {
+        date: format(new Date(), 'yyyy-MM-dd'),
+        orderBookerId: duplicateEntry.orderBookerId,
+        companyId: duplicateEntry.companyId,
+        summaryAmount: duplicateEntry.summaryAmount,
+        stockReturn: duplicateEntry.stockReturn,
+        cashReceived: duplicateEntry.cashReceived,
+        oldRecovery: duplicateEntry.oldRecovery,
+        notes: duplicateEntry.notes ? `[Copy] ${duplicateEntry.notes}` : '[Copy] Duplicated entry',
+      };
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success('Entry duplicated successfully');
+        setDuplicateDialogOpen(false);
+        setDuplicateEntry(null);
+        fetchEntries();
+      } else {
+        toast.error('Failed to duplicate entry');
+      }
+    } catch {
+      toast.error('Failed to duplicate entry');
+    }
+  };
+
   const exportCSV = () => {
     const headers = ['Date', 'OB Name', 'Company', 'Opening Balance', 'Summary', 'Stock Return', 'Posted Summary', 'Cash', 'Credit', 'Old Recovery', 'Closing Balance'];
     const rows = sortedEntries.map((e) => [
@@ -181,8 +228,22 @@ export default function EntriesTable() {
   const totalCredit = sortedEntries.reduce((s, e) => s + e.creditPosted, 0);
   const recoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
 
+  // Pagination logic
+  const totalPages = Math.ceil(sortedEntries.length / pageSize);
+  const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, filterOB, filterCompany, dateRange]);
+
+  // Get credit color class for row
+  const getCreditRowClass = (credit: number) => {
+    if (credit > 10000) return 'row-credit-high';
+    if (credit > 0) return 'row-credit-medium';
+    return 'row-credit-zero';
+  };
+
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6 section-gradient-entries min-h-screen">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in-up">
         <div>
           <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">Entries</h1>
@@ -329,7 +390,8 @@ export default function EntriesTable() {
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-muted/30 to-transparent">
             <p className="text-xs text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{sortedEntries.length}</span> of {entries.length} entries
+              Showing <span className="font-semibold text-foreground">{paginatedEntries.length}</span> of {sortedEntries.length} entries
+              {totalPages > 1 && <span className="text-muted-foreground/60"> (Page {currentPage} of {totalPages})</span>}
             </p>
             <Button
               variant="ghost"
@@ -373,8 +435,9 @@ export default function EntriesTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedEntries.map((entry) => (
-                    <TableRow key={entry.id} className="transition-all duration-200">
+                  {paginatedEntries.map((entry) => (
+                    <React.Fragment key={entry.id}>
+                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} cursor-pointer`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
                       <TableCell className="whitespace-nowrap text-sm font-medium">
                         {formatDate(entry.date)}
                       </TableCell>
@@ -420,10 +483,13 @@ export default function EntriesTable() {
                           </span>
                         </Badge>
                       </TableCell>
-                      <TableCell className="no-print">
+                      <TableCell className="no-print" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" onClick={() => handleEdit(entry)}>
                             <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 btn-duplicate" onClick={() => handleDuplicate(entry)} title="Duplicate entry">
+                            <Copy className="w-3 h-3" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -449,11 +515,128 @@ export default function EntriesTable() {
                         </div>
                       </TableCell>
                     </TableRow>
+                    {/* Expandable Row Details */}
+                    {expandedRow === entry.id && (
+                      <TableRow>
+                        <TableCell colSpan={12} className="p-0 border-0">
+                          <div className="expandable-row-detail px-6 py-4 bg-gradient-to-r from-emerald-50/50 via-transparent to-sky-50/50 dark:from-emerald-950/20 dark:via-transparent dark:to-sky-950/20 border-b border-emerald-200/30 dark:border-emerald-800/30">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
+                                <p className="text-sm font-mono font-bold">{entry.postedSummary.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Stock Return</p>
+                                <p className="text-sm font-mono font-bold text-red-600 dark:text-red-400">({entry.stockReturn.toLocaleString()})</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Cash Received</p>
+                                <p className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">{entry.cashReceived.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Credit Posted</p>
+                                <p className="text-sm font-mono font-bold text-red-600 dark:text-red-400">{entry.creditPosted.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
+                                <p className="text-sm font-mono font-bold text-sky-600 dark:text-sky-400">{entry.oldRecovery.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Recovery Rate</p>
+                                <p className={`text-sm font-mono font-bold ${entry.postedSummary > 0 ? ((entry.cashReceived / entry.postedSummary) * 100) >= 70 ? 'text-emerald-600 dark:text-emerald-400' : ((entry.cashReceived / entry.postedSummary) * 100) >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                                  {entry.postedSummary > 0 ? ((entry.cashReceived / entry.postedSummary) * 100).toFixed(1) : '0.0'}%
+                                </p>
+                              </div>
+                            </div>
+                            {entry.notes && (
+                              <div className="mt-3 pt-3 border-t border-emerald-200/30 dark:border-emerald-800/30">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Notes</p>
+                                <p className="text-xs text-muted-foreground italic">{entry.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
             )}
           </div>
+          {/* Pagination Controls */}
+          {!loading && sortedEntries.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="ml-2">
+                  {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedEntries.length)} of {sortedEntries.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                  <ChevronLeft className="w-3 h-3 -ml-1.5" />
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      className={`pagination-btn ${currentPage === pageNum ? 'active' : ''}`}
+                      onClick={() => setCurrentPage(pageNum)}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="w-3 h-3" />
+                  <ChevronRight className="w-3 h-3 -ml-1.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

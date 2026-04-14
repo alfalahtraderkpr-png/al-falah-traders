@@ -236,10 +236,14 @@ export default function AppShell() {
                 })()}
               </div>
               <div>
-                <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
-                  {navItems.find((n) => n.id === activePage)?.label || 'Dashboard'}
-                </h2>
-                <p className="text-[10px] text-muted-foreground hidden sm:block">
+                <div className="breadcrumb-nav">
+                  <span className="text-muted-foreground/60">Al-Falah</span>
+                  <span className="breadcrumb-separator">/</span>
+                  <span className="breadcrumb-current">
+                    {navItems.find((n) => n.id === activePage)?.label || 'Dashboard'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground hidden sm:block mt-0.5">
                   {navItems.find((n) => n.id === activePage)?.description}
                 </p>
               </div>
@@ -305,9 +309,9 @@ export default function AppShell() {
               <button
                 key={item.id}
                 onClick={() => setActivePage(item.id)}
-                className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all duration-200 ${
+                className={`mobile-nav-item flex flex-col items-center justify-center py-2 rounded-lg transition-all duration-200 ${
                   isActive
-                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30'
+                    ? 'active text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                 }`}
               >

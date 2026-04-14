@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Wallet,
   CreditCard, AlertTriangle, Activity, RefreshCw, ArrowUpRight, ArrowDownRight,
-  DollarSign, BarChart3, Package,
+  DollarSign, BarChart3, Package, Download,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
 
@@ -98,6 +98,28 @@ export default function DailySummaryPage() {
   const goToNextMonth = () => setCurrentMonth(prev => addMonths(prev, 1));
   const goToCurrentMonth = () => setCurrentMonth(new Date());
 
+  const exportCSV = () => {
+    if (dailySummary.length === 0) return;
+    const headers = ['Date', 'Total Sales', 'Total Recovery', 'Total Credit', 'Total Stock Return', 'Entry Count', 'Recovery Rate (%)'];
+    const rows = dailySummary.map(d => [
+      d.date,
+      d.totalSales,
+      d.totalRecovery,
+      d.totalCredit,
+      d.totalStockReturn,
+      d.entryCount,
+      d.recoveryRate.toFixed(1),
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daily-summary-${format(currentMonth, 'yyyy-MM')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const isCurrentMonth = format(currentMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
   // Build a map of dates for quick lookup
@@ -170,6 +192,10 @@ export default function DailySummaryPage() {
           </Button>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 btn-glow" onClick={exportCSV} disabled={dailySummary.length === 0}>
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline text-xs">Export CSV</span>
           </Button>
         </div>
       </div>
