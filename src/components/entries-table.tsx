@@ -294,7 +294,7 @@ export default function EntriesTable() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
-                    initialFocus
+                    autoFocus
                     mode="range"
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
@@ -437,7 +437,7 @@ export default function EntriesTable() {
                 <TableBody>
                   {paginatedEntries.map((entry) => (
                     <React.Fragment key={entry.id}>
-                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} cursor-pointer`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
+                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} cursor-pointer row-highlight`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
                       <TableCell className="whitespace-nowrap text-sm font-medium">
                         {formatDate(entry.date)}
                       </TableCell>
@@ -476,7 +476,7 @@ export default function EntriesTable() {
                       <TableCell className="text-right font-mono text-xs">
                         <Badge
                           variant={entry.closingBalance > 0 ? 'destructive' : 'default'}
-                          className={`text-[10px] px-1.5 py-0 h-4 font-mono badge-animated ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
+                          className={`text-[10px] px-1.5 py-0 h-4 font-mono badge-animated badge-pulse ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
                         >
                           <span className={`status-dot ${entry.closingBalance > 0 ? 'risk' : 'active'}`}>
                             {entry.closingBalance.toLocaleString()}
@@ -519,7 +519,8 @@ export default function EntriesTable() {
                     {expandedRow === entry.id && (
                       <TableRow>
                         <TableCell colSpan={12} className="p-0 border-0">
-                          <div className="expandable-row-detail px-6 py-4 bg-gradient-to-r from-emerald-50/50 via-transparent to-sky-50/50 dark:from-emerald-950/20 dark:via-transparent dark:to-sky-950/20 border-b border-emerald-200/30 dark:border-emerald-800/30">
+                          <div className="expandable-row-wrapper expanded">
+                          <div className="px-6 py-4 bg-gradient-to-r from-emerald-50/50 via-transparent to-sky-50/50 dark:from-emerald-950/20 dark:via-transparent dark:to-sky-950/20 border-b border-emerald-200/30 dark:border-emerald-800/30">
                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                               <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
@@ -554,6 +555,7 @@ export default function EntriesTable() {
                                 <p className="text-xs text-muted-foreground italic">{entry.notes}</p>
                               </div>
                             )}
+                          </div>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -675,6 +677,75 @@ export default function EntriesTable() {
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Confirmation Dialog */}
+      <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duplicate Entry</DialogTitle>
+            <DialogDescription>
+              This will create a copy of the entry with today&apos;s date. Review the details below and confirm.
+            </DialogDescription>
+          </DialogHeader>
+          {duplicateEntry && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Order Booker</p>
+                  <p className="font-medium">{duplicateEntry.orderBookerName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Company</p>
+                  <p className="font-medium">{duplicateEntry.companyName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Summary Amount</p>
+                  <p className="font-mono font-medium">PKR {duplicateEntry.summaryAmount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Stock Return</p>
+                  <p className="font-mono font-medium text-red-600 dark:text-red-400">({duplicateEntry.stockReturn.toLocaleString()})</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Cash Received</p>
+                  <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{duplicateEntry.cashReceived.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
+                  <p className="font-mono font-medium text-sky-600 dark:text-sky-400">{duplicateEntry.oldRecovery.toLocaleString()}</p>
+                </div>
+              </div>
+              {duplicateEntry.notes && (
+                <div className="pt-2 border-t">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Notes</p>
+                  <p className="text-xs text-muted-foreground italic mt-0.5">{duplicateEntry.notes}</p>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground pt-1">
+                The duplicated entry will be created with <span className="font-medium">today&apos;s date</span> ({format(new Date(), 'MMM dd, yyyy')}) and a <span className="font-medium">[Copy]</span> prefix in notes.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDuplicateDialogOpen(false);
+                setDuplicateEntry(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDuplicateSave}
+              className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Confirm Duplicate
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

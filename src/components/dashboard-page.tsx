@@ -14,13 +14,14 @@ import {
   TrendingUp, TrendingDown, DollarSign, AlertTriangle, BarChart3, PieChart as PieChartIcon,
   CalendarIcon, RefreshCw, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Percent,
   Plus, X, Trophy, AlertCircle, ArrowRight, CheckCircle2, Clock, Table2,
+  Zap, Eye, FileDown,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, formatDistanceToNow } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import EntryForm from '@/components/entry-form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -103,6 +104,9 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   // Quick Entry FAB
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
 
+  // Data refresh timestamp
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
   // Live clock
   const [currentTime, setCurrentTime] = useState(new Date());
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -169,6 +173,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        setLastRefreshed(new Date());
       }
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -344,7 +349,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   }).filter(Boolean) as { obName: string; type: 'growth' | 'risk'; detail: string; rate: number; credit: number; sales: number }[];
 
   return (
-    <div className="space-y-6 p-4 md:p-6 relative section-gradient-dashboard min-h-screen">
+    <div className="space-y-6 p-4 md:p-6 relative section-gradient-dashboard min-h-screen bg-grid-pattern">
       {/* Daily Summary Notification Banner */}
       {todaySummary && !bannerDismissed && (
         <div className="animate-fade-in-up bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl p-4 flex items-center justify-between shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
@@ -371,12 +376,12 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       )}
 
       {/* Welcome Banner with Live Clock */}
-      <div className="welcome-banner rounded-2xl p-5 animate-fade-in-up">
+      <div className="welcome-banner rounded-2xl p-5 animate-fade-in-up mesh-gradient">
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Activity className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
-              <h2 className="text-lg font-bold text-emerald-900 dark:text-emerald-100">
+              <h2 className="text-lg font-bold gradient-text-emerald">
                 {currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 17 ? 'Good Afternoon' : 'Good Evening'} 👋
               </h2>
             </div>
@@ -388,10 +393,24 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             {/* Health Score */}
             {!loading && data && (
               <div className="flex items-center gap-2 bg-white/60 dark:bg-black/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-emerald-200/50 dark:border-emerald-800/50">
-                <div className="health-score-ring">
+                <div className="health-score-ring health-score-ring-gradient">
                   <svg width="36" height="36" viewBox="0 0 36 36">
+                    <defs>
+                      <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#059669" />
+                        <stop offset="100%" stopColor="#34d399" />
+                      </linearGradient>
+                      <linearGradient id="healthGradientAmber" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#d97706" />
+                        <stop offset="100%" stopColor="#fbbf24" />
+                      </linearGradient>
+                      <linearGradient id="healthGradientRed" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#dc2626" />
+                        <stop offset="100%" stopColor="#f87171" />
+                      </linearGradient>
+                    </defs>
                     <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-emerald-200 dark:text-emerald-800" />
-                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${(netRecoveryRate / 100) * 88} 88`} strokeLinecap="round" className={netRecoveryRate >= 70 ? 'text-emerald-500' : netRecoveryRate >= 40 ? 'text-amber-500' : 'text-red-500'} />
+                    <circle cx="18" cy="18" r="14" fill="none" stroke={`url(#${netRecoveryRate >= 70 ? 'healthGradient' : netRecoveryRate >= 40 ? 'healthGradientAmber' : 'healthGradientRed'})`} strokeWidth="3" strokeDasharray={`${(netRecoveryRate / 100) * 88} 88`} strokeLinecap="round" />
                   </svg>
                   <span className="absolute text-[8px] font-bold text-emerald-800 dark:text-emerald-200">{netRecoveryRate.toFixed(0)}%</span>
                 </div>
@@ -440,7 +459,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
               <Calendar
-                initialFocus
+                autoFocus
                 mode="range"
                 defaultMonth={dateRange?.from}
                 selected={dateRange}
@@ -495,7 +514,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                       <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
                     </div>
                   </div>
-                  <div className="text-2xl font-bold tracking-tight mb-2">{kpi.value}</div>
+                  <div className="text-2xl font-bold tracking-tight mb-2 kpi-value-pulse animate-count-up">{kpi.value}</div>
                   <Progress
                     value={Math.min(kpi.progressValue, 100)}
                     className="h-1.5 mb-2"
@@ -528,6 +547,80 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                 </CardContent>
               </Card>
             ))}
+      </div>
+
+      {/* Quick Actions Panel */}
+      {!loading && (
+        <Card className="card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                className="gap-2 h-9 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-md shadow-emerald-200/50 dark:shadow-emerald-900/30 btn-glow font-semibold"
+                onClick={() => setQuickEntryOpen(true)}
+              >
+                <Plus className="w-4 h-4" /> Add Entry
+              </Button>
+              {onNavigate && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={() => onNavigate('balances')}
+                  >
+                    <Eye className="w-4 h-4" /> View Balances
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={() => onNavigate('reports')}
+                  >
+                    <FileDown className="w-4 h-4" /> Export Report
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={() => onNavigate('entries')}
+                  >
+                    <Table2 className="w-4 h-4" /> View Entries
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={() => onNavigate('daily')}
+                  >
+                    <CalendarIcon className="w-4 h-4" /> Daily Summary
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Data Refresh Indicator */}
+      <div className="flex items-center justify-between animate-fade-in-up">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border/50">
+          <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'} ring-2 ${loading ? 'ring-amber-400/20' : 'ring-emerald-400/20'}`} />
+          <span className="text-[11px] text-muted-foreground">
+            Data as of <span className="font-mono font-semibold text-foreground/80">{format(lastRefreshed, 'hh:mm:ss a')}</span>
+          </span>
+          {autoRefresh && (
+            <span className="text-[10px] text-muted-foreground/60 border-l border-border/50 pl-2 ml-1">
+              Auto-refresh in <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{countdown}s</span>
+            </span>
+          )}
+        </div>
+        {!loading && data && (
+          <span className="text-[10px] text-muted-foreground/50">
+            {data.summary?.entryCount ?? 0} entries in range
+          </span>
+        )}
       </div>
 
       {/* Top Performers + Attention Needed */}
@@ -625,7 +718,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entries</p>
-              <p className="text-sm font-bold">{data.summary.entryCount}</p>
+              <p className="text-sm font-bold">{data.summary?.entryCount ?? 0}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
@@ -646,7 +739,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             <BarChart3 className="w-4 h-4 text-sky-500 shrink-0" />
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">OBs Active</p>
-              <p className="text-sm font-bold">{data.orderBookerBreakdown.length}</p>
+              <p className="text-sm font-bold">{data.orderBookerBreakdown?.length ?? 0}</p>
             </div>
           </div>
         </div>
@@ -655,7 +748,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Daily Trend with Toggle */}
-        <Card className="card-hover">
+        <Card className="card-hover chart-hover-zoom">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -720,7 +813,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
         </Card>
 
         {/* Company Comparison Stacked Bar Chart */}
-        <Card className="card-hover">
+        <Card className="card-hover chart-hover-zoom">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -754,7 +847,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
 
       {/* OB Performance Bar Chart */}
       {!loading && data && (data?.orderBookerBreakdown || []).length > 0 && (
-        <Card className="card-hover animate-fade-in-up">
+        <Card className="card-hover chart-hover-zoom animate-fade-in-up">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -780,7 +873,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       {/* Company Distribution + Indicators */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Company Pie Chart */}
-        <Card className="card-hover">
+        <Card className="card-hover chart-hover-zoom">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <PieChartIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -821,7 +914,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
         </Card>
 
         {/* Performance Indicators */}
-        <Card className="card-hover">
+        <Card className="card-hover chart-hover-zoom">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -888,7 +981,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
         </Card>
       </div>
 
-      {/* Recent Activity Log */}
+      {/* Recent Activity Timeline */}
       {!loading && (
         <Card className="card-hover border border-emerald-200/50 dark:border-emerald-800/50 animate-fade-in-up">
           <CardHeader className="pb-2">
@@ -928,49 +1021,60 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                 </Button>
               </div>
             ) : (
-              <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                <Table className="table-enhanced">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-[10px]">Date</TableHead>
-                      <TableHead className="text-[10px]">OB Name</TableHead>
-                      <TableHead className="text-[10px]">Company</TableHead>
-                      <TableHead className="text-right text-[10px]">Sales</TableHead>
-                      <TableHead className="text-right text-[10px]">Cash</TableHead>
-                      <TableHead className="text-right text-[10px]">Credit</TableHead>
-                      <TableHead className="text-right text-[10px]">Closing</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentEntries.map((entry) => (
-                      <TableRow key={entry.id} className="transition-all duration-200">
-                        <TableCell className="whitespace-nowrap text-xs font-medium">
-                          {(() => { try { return format(new Date(entry.date), 'MMM dd'); } catch { return String(entry.date); } })()}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[8px] font-bold text-white shrink-0">
-                              {entry.orderBookerName?.charAt(0) || '?'}
-                            </div>
-                            <span className="truncate max-w-[80px]">{entry.orderBookerName}</span>
+              <div className="relative max-h-96 overflow-y-auto custom-scrollbar">
+                {/* Timeline connecting line */}
+                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-emerald-200 to-emerald-100 dark:from-emerald-700 dark:via-emerald-800 dark:to-emerald-900" />
+                <div className="space-y-0">
+                  {recentEntries.slice(0, 5).map((entry, i) => (
+                    <div key={entry.id} className="relative flex items-start gap-4 py-3 group">
+                      {/* Timeline dot */}
+                      <div className="relative z-10 shrink-0">
+                        <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center shadow-sm border-2 border-white dark:border-gray-900 ${
+                          i === 0
+                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                            : 'bg-gradient-to-br from-emerald-200 to-emerald-300 dark:from-emerald-800 dark:to-emerald-700'
+                        }`}>
+                          <span className={`text-[9px] font-bold ${i === 0 ? 'text-white' : 'text-emerald-700 dark:text-emerald-200'}`}>
+                            {entry.orderBookerName?.charAt(0) || '?'}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Timeline content */}
+                      <div className="flex-1 min-w-0 pb-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{entry.orderBookerName}</span>
+                            <span className="text-[10px] text-muted-foreground">→</span>
+                            <span className="text-xs text-muted-foreground truncate">{entry.companyName}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[80px]">{entry.companyName}</TableCell>
-                        <TableCell className="text-right font-mono text-[10px]">{entry.summaryAmount.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-[10px] text-emerald-600 dark:text-emerald-400">{entry.cashReceived.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-[10px]">{entry.creditPosted.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={entry.closingBalance > 0 ? 'destructive' : 'default'}
-                            className={`text-[9px] px-1 py-0 h-3.5 font-mono ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
-                          >
-                            {entry.closingBalance.toLocaleString()}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              PKR {entry.summaryAmount.toLocaleString()}
+                            </span>
+                            {entry.creditPosted > 0 && (
+                              <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 font-mono">
+                                +{entry.creditPosted.toLocaleString()} cr
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">
+                            {(() => { try { return format(new Date(entry.date), 'MMM dd, yyyy'); } catch { return String(entry.date); } })()}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/50">·</span>
+                          <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">
+                            {(() => { try { return formatDistanceToNow(new Date(entry.date), { addSuffix: true }); } catch { return ''; } })()}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/50">·</span>
+                          <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">
+                            Cash: PKR {entry.cashReceived.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

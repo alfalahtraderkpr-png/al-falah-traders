@@ -1078,3 +1078,439 @@ button:focus-visible {
   color: #34d399;
   background: oklch(0.24 0.03 155);
 }
+
+/* ===== ENHANCED STYLES (Task ID: 2 - Styling Detail Improvements) ===== */
+
+/* Gradient text effect for important headings */
+.gradient-text {
+  background: linear-gradient(135deg, #059669 0%, #0284c7 50%, #059669 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientText 3s ease infinite;
+}
+.gradient-text-warm {
+  background: linear-gradient(135deg, #d97706 0%, #dc2626 50%, #d97706 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientText 3s ease infinite;
+}
+.gradient-text-emerald {
+  background: linear-gradient(135deg, #047857 0%, #34d399 50%, #059669 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientText 4s ease infinite;
+}
+@keyframes gradientText {
+  0% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+  100% { background-position: 0% center; }
+}
+
+/* Animated gradient backgrounds */
+@keyframes animatedGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.bg-animated-gradient {
+  background: linear-gradient(-45deg, #ecfdf5, #d1fae5, #a7f3d0, #6ee7b7, #a7f3d0, #d1fae5);
+  background-size: 400% 400%;
+  animation: animatedGradient 15s ease infinite;
+}
+.dark .bg-animated-gradient {
+  background: linear-gradient(-45deg, #022c22, #064e3b, #065f46, #047857, #065f46, #064e3b);
+  background-size: 400% 400%;
+  animation: animatedGradient 15s ease infinite;
+}
+
+/* Number counter animation keyframes */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-count-up {
+  animation: countUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* KPI value pulse for important numbers */
+@keyframes kpiPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+.kpi-value-pulse {
+  animation: kpiPulse 3s ease-in-out infinite;
+  transform-origin: left center;
+}
+
+/* Button hover ripple effect */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.btn-ripple .ripple-effect {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* Better focus ring with glow */
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15), 0 0 12px -2px rgba(5, 150, 105, 0.2);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dark input:focus-visible, .dark select:focus-visible, .dark textarea:focus-visible {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15), 0 0 12px -2px rgba(52, 211, 153, 0.2);
+}
+
+/* Enhanced focus glow for login inputs */
+.input-focus-glow {
+  transition: all 0.3s ease;
+}
+.input-focus-glow:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12), 0 0 20px -4px rgba(5, 150, 105, 0.25);
+}
+.dark .input-focus-glow:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12), 0 0 20px -4px rgba(52, 211, 153, 0.25);
+}
+
+/* Row highlight animation on data change */
+@keyframes rowHighlight {
+  0% { background-color: rgba(5, 150, 105, 0.15); }
+  100% { background-color: transparent; }
+}
+.row-highlight {
+  animation: rowHighlight 1.5s ease-out;
+}
+
+/* Dialog entrance/exit animations */
+@keyframes dialogEnter {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes dialogExit {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.95) translateY(8px); }
+}
+.dialog-animate-in {
+  animation: dialogEnter 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.dialog-animate-out {
+  animation: dialogExit 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Glassmorphism for dialogs/modals */
+.glass-dialog {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(5, 150, 105, 0.05);
+}
+.dark .glass-dialog {
+  background: rgba(18, 24, 27, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(52, 211, 153, 0.08);
+}
+
+/* Toast notification styling enhancements */
+[data-sonner-toaster] [data-sonner-toast] {
+  border-radius: 12px;
+  border: 1px solid rgba(5, 150, 105, 0.15);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-sonner-toaster] [data-sonner-toast]:hover {
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+[data-sonner-toaster] [data-type="success"] {
+  border-color: rgba(5, 150, 105, 0.3);
+}
+[data-sonner-toaster] [data-type="error"] {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+/* Skeleton shimmer improvements with color waves */
+@keyframes shimmerWave {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer-wave {
+  background: linear-gradient(90deg,
+    oklch(0.93 0.01 155) 0%,
+    oklch(0.90 0.015 155) 20%,
+    oklch(0.85 0.03 155) 40%,
+    oklch(0.90 0.015 155) 60%,
+    oklch(0.93 0.01 155) 80%,
+    oklch(0.93 0.01 155) 100%);
+  background-size: 200% 100%;
+  animation: shimmerWave 2s ease-in-out infinite;
+}
+.dark .shimmer-wave {
+  background: linear-gradient(90deg,
+    oklch(0.22 0.02 155) 0%,
+    oklch(0.26 0.02 155) 20%,
+    oklch(0.32 0.03 155) 40%,
+    oklch(0.26 0.02 155) 60%,
+    oklch(0.22 0.02 155) 80%,
+    oklch(0.22 0.02 155) 100%);
+  background-size: 200% 100%;
+  animation: shimmerWave 2s ease-in-out infinite;
+}
+
+/* Smooth sidebar transition on collapse/expand */
+.sidebar-transition {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
+}
+
+/* Animated sidebar active indicator */
+@keyframes indicatorSlide {
+  from { transform: translateY(-50%) scaleY(0); opacity: 0; }
+  to { transform: translateY(-50%) scaleY(1); opacity: 1; }
+}
+.sidebar-active-indicator {
+  animation: indicatorSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Better dark mode transitions */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark-transition {
+  transition-duration: 0.2s;
+}
+
+/* Subtle background pattern for dashboard */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(5, 150, 105, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 150, 105, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.dark .bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(52, 211, 153, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52, 211, 153, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Decorative mesh gradient for welcome banner */
+.mesh-gradient {
+  background:
+    radial-gradient(at 20% 80%, rgba(5, 150, 105, 0.08) 0%, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(2, 132, 199, 0.06) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(5, 150, 105, 0.04) 0%, transparent 70%);
+}
+.dark .mesh-gradient {
+  background:
+    radial-gradient(at 20% 80%, rgba(5, 150, 105, 0.12) 0%, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(2, 132, 199, 0.08) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(5, 150, 105, 0.06) 0%, transparent 70%);
+}
+
+/* Chart hover micro-animation */
+.chart-hover-zoom {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.chart-hover-zoom:hover {
+  transform: scale(1.005);
+  box-shadow: 0 8px 24px -4px rgba(5, 150, 105, 0.1);
+}
+.dark .chart-hover-zoom:hover {
+  box-shadow: 0 8px 24px -4px rgba(52, 211, 153, 0.08);
+}
+
+/* Health score ring gradient stroke */
+.health-score-ring-gradient {
+  filter: drop-shadow(0 0 4px rgba(5, 150, 105, 0.3));
+}
+.dark .health-score-ring-gradient {
+  filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.3));
+}
+
+/* Typing cursor animation for login */
+@keyframes typingCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.typing-cursor::after {
+  content: '|';
+  animation: typingCursor 1s step-end infinite;
+  color: #059669;
+  font-weight: 300;
+  margin-left: 2px;
+}
+
+/* Logo shimmer effect */
+@keyframes logoShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.logo-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.logo-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: logoShimmer 3s ease-in-out infinite;
+}
+
+/* Page transition variants */
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pageSlideOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-12px); }
+}
+.animate-page-slide-in {
+  animation: pageSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.animate-page-slide-out {
+  animation: pageSlideOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Breadcrumb trail animation */
+@keyframes breadcrumbFade {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.breadcrumb-nav .breadcrumb-current {
+  animation: breadcrumbFade 0.3s ease forwards;
+}
+
+/* Mobile nav slide animation */
+@keyframes mobileNavSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.mobile-nav-slide {
+  animation: mobileNavSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Enhanced table row hover with color transition */
+.table-enhanced tbody tr {
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.table-enhanced tbody tr:hover {
+  transform: scale(1.001);
+}
+.table-enhanced tbody tr:active {
+  transform: scale(0.999);
+}
+
+/* Animated badge pulse on value change */
+@keyframes badgePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.badge-pulse {
+  animation: badgePulse 0.3s ease;
+}
+
+/* Expandable row with smooth height animation */
+.expandable-row-wrapper {
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+}
+.expandable-row-wrapper.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+.expandable-row-wrapper.expanded {
+  max-height: 300px;
+  opacity: 1;
+}
+
+/* Tooltip styling improvements */
+[data-radix-tooltip-content] {
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(5, 150, 105, 0.95);
+  color: white;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.15);
+  animation: tooltipEnter 0.15s ease;
+}
+@keyframes tooltipEnter {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Card entrance with enhanced stagger */
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-card-entrance {
+  animation: cardEntrance 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.stagger-7 { animation-delay: 0.35s; opacity: 0; }
+.stagger-8 { animation-delay: 0.4s; opacity: 0; }
+.stagger-9 { animation-delay: 0.45s; opacity: 0; }
+.stagger-10 { animation-delay: 0.5s; opacity: 0; }
+
+/* Subtle floating animation for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+.animate-float-delayed {
+  animation: float 4s ease-in-out infinite;
+  animation-delay: 1s;
+}
+.animate-float-slow {
+  animation: float 6s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* Glow effect for active/important elements */
+.glow-emerald {
+  box-shadow: 0 0 15px -3px rgba(5, 150, 105, 0.2), 0 0 6px -2px rgba(5, 150, 105, 0.1);
+}
+.dark .glow-emerald {
+  box-shadow: 0 0 15px -3px rgba(52, 211, 153, 0.15), 0 0 6px -2px rgba(52, 211, 153, 0.08);
+}
+
+/* Interactive scale effect for clickable elements */
+.scale-on-hover {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scale-on-hover:hover {
+  transform: scale(1.02);
+}
+.scale-on-hover:active {
+  transform: scale(0.98);
+}

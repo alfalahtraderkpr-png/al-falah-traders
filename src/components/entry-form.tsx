@@ -467,7 +467,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                         if (d) setDate(d);
                         setCalendarOpen(false);
                       }}
-                      initialFocus
+                      autoFocus
                     />
                   </PopoverContent>
                 </Popover>
@@ -660,7 +660,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                           if (d) setDate(d);
                           setCalendarOpen(false);
                         }}
-                        initialFocus
+                        autoFocus
                       />
                     </PopoverContent>
                   </Popover>

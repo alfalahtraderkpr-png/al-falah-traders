@@ -11,7 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson } from 'lucide-react';
+import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson, Search, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 interface OrderBooker {
@@ -57,6 +58,12 @@ export default function SettingsPage() {
   const [showCurrentPwd, setShowCurrentPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+
+  // OB Search filter
+  const [obSearch, setObSearch] = useState('');
+
+  // Company Category filter
+  const [coCategoryFilter, setCoCategoryFilter] = useState('all');
 
   // Backup state
   const [exporting, setExporting] = useState(false);
@@ -363,6 +370,22 @@ export default function SettingsPage() {
   const totalOBEntries = orderBookers.reduce((s, ob) => s + (ob.entryCount || 0), 0);
   const totalCoEntries = companies.reduce((s, co) => s + (co.entryCount || 0), 0);
 
+  // Filtered OBs based on search
+  const filteredOBs = orderBookers.filter(ob => {
+    if (!obSearch.trim()) return true;
+    const q = obSearch.toLowerCase();
+    return ob.name.toLowerCase().includes(q) || (ob.phone && ob.phone.toLowerCase().includes(q));
+  });
+
+  // Unique categories for filter
+  const companyCategories = Array.from(new Set(companies.filter(co => co.category).map(co => co.category as string))).sort();
+
+  // Filtered companies based on category
+  const filteredCompanies = companies.filter(co => {
+    if (coCategoryFilter === 'all') return true;
+    return co.category === coCategoryFilter;
+  });
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="animate-fade-in-up">
@@ -443,6 +466,30 @@ export default function SettingsPage() {
             </Button>
           </div>
 
+          {/* Search OBs */}
+          <div className="relative animate-fade-in-up">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or phone..."
+              value={obSearch}
+              onChange={(e) => setObSearch(e.target.value)}
+              className="h-9 pl-9 pr-9 border-emerald-200 dark:border-emerald-800 focus:border-emerald-400 dark:focus:border-emerald-600"
+            />
+            {obSearch && (
+              <button
+                onClick={() => setObSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {obSearch && (
+              <span className="absolute right-10 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                {filteredOBs.length} result{filteredOBs.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
           <Card className="card-hover animate-fade-in-up stagger-1">
             <CardContent className="p-0">
               <div className="max-h-96 overflow-y-auto custom-scrollbar">
@@ -450,10 +497,17 @@ export default function SettingsPage() {
                   <div className="p-6 space-y-3">
                     {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full shimmer" />)}
                   </div>
-                ) : orderBookers.length === 0 ? (
+                ) : filteredOBs.length === 0 ? (
                   <div className="p-12 text-center text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>No order bookers yet. Add one to get started.</p>
+                    {obSearch ? (
+                      <>
+                        <p>No order bookers match &quot;{obSearch}&quot;</p>
+                        <Button variant="link" className="text-emerald-600 dark:text-emerald-400 text-xs mt-1" onClick={() => setObSearch('')}>Clear search</Button>
+                      </>
+                    ) : (
+                      <p>No order bookers yet. Add one to get started.</p>
+                    )}
                   </div>
                 ) : (
                   <Table className="table-enhanced">
@@ -467,7 +521,7 @@ export default function SettingsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orderBookers.map((ob) => (
+                      {filteredOBs.map((ob) => (
                         <TableRow key={ob.id} className="transition-all duration-200">
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
@@ -549,6 +603,32 @@ export default function SettingsPage() {
             </Button>
           </div>
 
+          {/* Category Filter */}
+          {companyCategories.length > 0 && (
+            <div className="flex items-center gap-2 animate-fade-in-up">
+              <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Select value={coCategoryFilter} onValueChange={setCoCategoryFilter}>
+                <SelectTrigger className="h-9 w-[180px] border-sky-200 dark:border-sky-800 text-xs">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Categories</SelectItem>
+                  {companyCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {coCategoryFilter !== 'all' && (
+                <Badge variant="outline" className="text-[10px] border-sky-200 dark:border-sky-800 gap-1">
+                  {filteredCompanies.length} of {companies.length}
+                  <button onClick={() => setCoCategoryFilter('all')} className="ml-0.5 hover:text-foreground">
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
+
           <Card className="card-hover animate-fade-in-up stagger-1">
             <CardContent className="p-0">
               <div className="max-h-96 overflow-y-auto custom-scrollbar">
@@ -556,10 +636,17 @@ export default function SettingsPage() {
                   <div className="p-6 space-y-3">
                     {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full shimmer" />)}
                   </div>
-                ) : companies.length === 0 ? (
+                ) : filteredCompanies.length === 0 ? (
                   <div className="p-12 text-center text-muted-foreground">
                     <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>No companies yet. Add one to get started.</p>
+                    {coCategoryFilter !== 'all' ? (
+                      <>
+                        <p>No companies in category &quot;{coCategoryFilter}&quot;</p>
+                        <Button variant="link" className="text-sky-600 dark:text-sky-400 text-xs mt-1" onClick={() => setCoCategoryFilter('all')}>Show all categories</Button>
+                      </>
+                    ) : (
+                      <p>No companies yet. Add one to get started.</p>
+                    )}
                   </div>
                 ) : (
                   <Table className="table-enhanced">
@@ -573,7 +660,7 @@ export default function SettingsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {companies.map((co) => (
+                      {filteredCompanies.map((co) => (
                         <TableRow key={co.id} className="transition-all duration-200">
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">

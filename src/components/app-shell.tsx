@@ -236,7 +236,7 @@ export default function AppShell() {
                 })()}
               </div>
               <div>
-                <div className="breadcrumb-nav">
+                <div className="breadcrumb-nav" key={activePage}>
                   <span className="text-muted-foreground/60">Al-Falah</span>
                   <span className="breadcrumb-separator">/</span>
                   <span className="breadcrumb-current">
@@ -261,7 +261,7 @@ export default function AppShell() {
           </div>
         </header>
 
-        <div className="flex-1 animate-page-enter pb-16 md:pb-0" key={activePage}>
+        <div className="flex-1 animate-page-slide-in pb-16 md:pb-0" key={activePage}>
           {renderPage()}
         </div>
 
@@ -295,7 +295,7 @@ export default function AppShell() {
       </SidebarInset>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-emerald-200/50 dark:border-emerald-800/50 safe-area-bottom no-print">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-emerald-200/50 dark:border-emerald-800/50 safe-area-bottom no-print mobile-nav-slide">
         <div className="grid grid-cols-5 gap-0.5 px-1 py-1">
           {[
             { id: 'dashboard' as Page, label: 'Home', icon: LayoutDashboard },

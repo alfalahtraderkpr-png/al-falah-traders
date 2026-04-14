@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Database, Lock, User, Building2, Shield, Sparkles } from 'lucide-react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -16,6 +17,22 @@ export default function LoginPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [needsSeed, setNeedsSeed] = useState(false);
+
+  // Typing animation for subtitle
+  const [typedText, setTypedText] = useState('');
+  const subtitleText = 'Distribution Management System';
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index <= subtitleText.length) {
+        setTypedText(subtitleText.slice(0, index));
+        index++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSeed = async () => {
     setIsSeeding(true);
@@ -76,7 +93,7 @@ export default function LoginPage() {
         {/* Logo and Title */}
         <div className="text-center space-y-4 animate-fade-in-up">
           {/* Company logo area */}
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 text-white shadow-2xl shadow-emerald-300/40 dark:shadow-emerald-900/40 ring-4 ring-white/50 dark:ring-emerald-800/30">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 text-white shadow-2xl shadow-emerald-300/40 dark:shadow-emerald-900/40 ring-4 ring-white/50 dark:ring-emerald-800/30 logo-shimmer">
             <Building2 className="w-12 h-12" />
           </div>
           <div>
@@ -85,7 +102,7 @@ export default function LoginPage() {
             </h1>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Distribution Management System</p>
+              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{typedText}<span className="typing-cursor" /></p>
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">Field Force Automation Platform</p>
@@ -118,7 +135,7 @@ export default function LoginPage() {
         )}
 
         {/* Login Form */}
-        <Card className="shadow-2xl shadow-emerald-200/40 dark:shadow-emerald-900/30 animate-fade-in-up stagger-2 glass-card">
+        <Card className="shadow-2xl shadow-emerald-200/40 dark:shadow-emerald-900/30 animate-fade-in-up stagger-2 glass-dialog">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-2xl text-center flex items-center justify-center gap-2">
               <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
@@ -141,7 +158,7 @@ export default function LoginPage() {
                     placeholder="Enter username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="pl-10 h-11 bg-white/60 dark:bg-black/20 border-emerald-200/50 dark:border-emerald-800/50 focus:border-emerald-400"
+                    className="pl-10 h-11 bg-white/60 dark:bg-black/20 border-emerald-200/50 dark:border-emerald-800/50 focus:border-emerald-400 input-focus-glow"
                     autoComplete="username"
                   />
                 </div>
@@ -156,14 +173,14 @@ export default function LoginPage() {
                     placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 bg-white/60 dark:bg-black/20 border-emerald-200/50 dark:border-emerald-800/50 focus:border-emerald-400"
+                    className="pl-10 h-11 bg-white/60 dark:bg-black/20 border-emerald-200/50 dark:border-emerald-800/50 focus:border-emerald-400 input-focus-glow"
                     autoComplete="current-password"
                   />
                 </div>
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-700 hover:via-emerald-600 hover:to-teal-600 h-11 shadow-lg shadow-emerald-300/30 dark:shadow-emerald-900/30 btn-glow font-semibold text-base"
+                className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-700 hover:via-emerald-600 hover:to-teal-600 h-11 shadow-lg shadow-emerald-300/30 dark:shadow-emerald-900/30 btn-glow btn-ripple font-semibold text-base"
                 disabled={isLoggingIn}
               >
                 {isLoggingIn ? (

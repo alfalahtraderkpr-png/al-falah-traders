@@ -241,7 +241,7 @@ export default function ReportsPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
               <Calendar
-                initialFocus
+                autoFocus
                 mode="range"
                 defaultMonth={dateRange?.from}
                 selected={dateRange}
