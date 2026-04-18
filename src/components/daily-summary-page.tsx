@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   CalendarDays, ChevronLeft, ChevronRight, TrendingUp, Wallet,
   CreditCard, AlertTriangle, Activity, RefreshCw, ArrowUpRight, ArrowDownRight,
-  DollarSign, BarChart3, Package, Download,
+  DollarSign, BarChart3, Package, Download, Users, CheckCircle, XCircle,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
 
@@ -33,6 +33,19 @@ interface MonthlySummary {
   avgDailySales: number;
   avgDailyRecovery: number;
   recoveryRate: number;
+}
+
+interface OBPerformanceItem {
+  date: string;
+  orderBookerId: string;
+  orderBookerName: string;
+  totalSummary: number;
+  totalCash: number;
+  totalCredit: number;
+  totalRecovery: number;
+  openingBalance: number;
+  closingBalance: number;
+  entryCount: number;
 }
 
 function formatPKR(value: number): string {
@@ -70,6 +83,8 @@ export default function DailySummaryPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dailySummary, setDailySummary] = useState<DailySummaryItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [obPerformanceByDate, setObPerformanceByDate] = useState<Record<string, OBPerformanceItem[]>>({});
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -82,6 +97,7 @@ export default function DailySummaryPage() {
         const json = await res.json();
         setDailySummary(json.dailySummary || []);
         setMonthlySummary(json.monthlySummary || null);
+        setObPerformanceByDate(json.obPerformanceByDate || {});
       }
     } catch (err) {
       console.error('Daily summary fetch error:', err);
@@ -407,7 +423,7 @@ export default function DailySummaryPage() {
                   {dailySummary.map((day) => {
                     const colors = getRecoveryColor(day.recoveryRate);
                     return (
-                      <tr key={day.date} className={`border-b transition-colors hover:bg-muted/30 ${colors.bg}/50`}>
+                      <tr key={day.date} className={`border-b transition-colors hover:bg-muted/30 ${colors.bg}/50 cursor-pointer`} onClick={() => setSelectedDay(selectedDay === day.date ? null : day.date)}>
                         <td className="py-2.5 px-3 font-medium text-sm">
                           <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${colors.dot} shrink-0`} />
@@ -434,6 +450,116 @@ export default function DailySummaryPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* OB Daily Performance */}
+      <Card className="animate-fade-in-up stagger-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            OB Daily Performance
+          </CardTitle>
+          <CardDescription className="text-xs">
+            {selectedDay
+              ? `Order Booker breakdown for ${format(new Date(selectedDay + 'T00:00:00'), 'EEE, MMM dd, yyyy')}`
+              : 'Click on a day in the table above to see OB-level breakdown'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {selectedDay && obPerformanceByDate[selectedDay] ? (() => {
+            const obData = obPerformanceByDate[selectedDay];
+            const maxSummary = Math.max(...obData.map(o => o.totalSummary ?? 0), 1);
+            const totalDaySummary = obData.reduce((s, o) => s + (o.totalSummary ?? 0), 0);
+            const totalDayCash = obData.reduce((s, o) => s + (o.totalCash ?? 0), 0);
+            const totalDayCredit = obData.reduce((s, o) => s + (o.totalCredit ?? 0), 0);
+            const totalDayRecovery = obData.reduce((s, o) => s + (o.totalRecovery ?? 0), 0);
+
+            return (
+              <div className="space-y-4 animate-fade-scale">
+                {/* Day Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Summary</p>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPKR(totalDaySummary)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200/50 dark:border-sky-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Cash</p>
+                    <p className="text-sm font-bold text-sky-700 dark:text-sky-300">{formatPKR(totalDayCash)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-red-50/80 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Credit</p>
+                    <p className="text-sm font-bold text-red-700 dark:text-red-300">{formatPKR(totalDayCredit)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/50">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Recovery</p>
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-300">{formatPKR(totalDayRecovery)}</p>
+                  </div>
+                </div>
+
+                {/* OB Comparison Bar Chart */}
+                <div className="space-y-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">OB Comparison - Summary Amount</p>
+                  {obData.map((ob) => {
+                    const pct = ((ob.totalSummary ?? 0) / maxSummary) * 100;
+                    const isGood = (ob.closingBalance ?? 0) <= (ob.openingBalance ?? 0);
+                    return (
+                      <div key={ob.orderBookerId} className={`ob-performance-card ${isGood ? 'good' : 'warning'} animate-slide-in-right`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[9px] font-bold text-white shadow-sm">
+                              {(ob.orderBookerName ?? '?').charAt(0)}
+                            </div>
+                            <span className="text-xs font-medium">{ob.orderBookerName}</span>
+                            {isGood ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0 text-[8px] px-1 py-0 h-4">
+                                <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> Good
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-0 text-[8px] px-1 py-0 h-4">
+                                <XCircle className="w-2.5 h-2.5 mr-0.5" /> Warning
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-xs font-mono font-bold">{formatPKR(ob.totalSummary ?? 0)}</span>
+                        </div>
+                        <div className="balance-bar mb-2">
+                          <div className={`balance-bar-fill ${isGood ? 'emerald' : 'red'}`} style={{ width: `${Math.max(pct, 2)}%` }} />
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-[10px]">
+                          <div>
+                            <span className="text-muted-foreground">Cash:</span>
+                            <span className="ml-1 font-mono font-semibold text-emerald-600 dark:text-emerald-400">{(ob.totalCash ?? 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Credit:</span>
+                            <span className="ml-1 font-mono font-semibold text-red-600 dark:text-red-400">{(ob.totalCredit ?? 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Recovery:</span>
+                            <span className="ml-1 font-mono font-semibold text-sky-600 dark:text-sky-400">{(ob.totalRecovery ?? 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Opening:</span>
+                            <span className="ml-1 font-mono font-semibold text-amber-600 dark:text-amber-400">{(ob.openingBalance ?? 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Closing:</span>
+                            <span className={`ml-1 font-mono font-semibold ${(ob.closingBalance ?? 0) <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{(ob.closingBalance ?? 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="py-8 text-center text-muted-foreground">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">Click on a day in the table above to view OB performance</p>
             </div>
           )}
         </CardContent>

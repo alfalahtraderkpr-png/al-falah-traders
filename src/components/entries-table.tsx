@@ -12,10 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 as TrashMultiple } from 'lucide-react';
+import { CalendarIcon, Download, Edit, Trash2, Search, RefreshCw, Filter, FileSpreadsheet, SortAsc, SortDesc, TrendingUp, TrendingDown, AlertTriangle, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 as TrashMultiple, Calculator, ArrowRight, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import EntryForm from '@/components/entry-form';
 
 interface Entry {
@@ -182,32 +183,38 @@ export default function EntriesTable() {
   };
 
   const exportCSV = () => {
-    const headers = ['Date', 'OB Name', 'Company', 'Opening Balance', 'Summary', 'Stock Return', 'Posted Summary', 'Cash', 'Credit', 'Claim Cleared', 'Old Recovery', 'Ret by OB', 'Total Recovery', 'Closing Balance'];
-    const rows = sortedEntries.map((e) => [
-      typeof e.date === 'string' ? e.date.split('T')[0] : e.date,
-      e.orderBookerName || '',
-      e.companyName || '',
-      e.openingBalance,
-      e.summaryAmount,
-      e.stockReturn,
-      e.postedSummary,
-      e.cashReceived,
-      e.creditPosted,
-      e.claimCleared,
-      e.oldRecovery,
-      e.returnStockClaimByOB,
-      e.totalRecovery,
-      e.closingBalance,
-    ]);
+    const headers = ['Date', 'OB Name', 'Company', 'Opening Balance', 'Summary', 'Stock Return', 'Posted Summary', 'Cash', 'Credit', 'Claim Cleared', 'Old Recovery', 'Ret by OB', 'Total Recovery', 'Closing Balance', 'Credit Formula', 'Closing Formula'];
+    const rows = sortedEntries.map((e) => {
+      const creditCalc = `Summary(${e.summaryAmount}) - StkRet(${e.stockReturn}) - Cash(${e.cashReceived})`;
+      const closingCalc = `Opening(${e.openingBalance}) - OldRec(${e.oldRecovery}) - Claim(${e.claimCleared}) - RetOB(${e.returnStockClaimByOB}) + Credit(${e.creditPosted})`;
+      return [
+        typeof e.date === 'string' ? e.date.split('T')[0] : e.date,
+        e.orderBookerName || '',
+        e.companyName || '',
+        e.openingBalance,
+        e.summaryAmount,
+        e.stockReturn,
+        e.postedSummary,
+        e.cashReceived,
+        e.creditPosted,
+        e.claimCleared,
+        e.oldRecovery,
+        e.returnStockClaimByOB,
+        e.totalRecovery,
+        e.closingBalance,
+        creditCalc,
+        closingCalc,
+      ];
+    });
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `entries-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `entries-export-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('CSV exported successfully');
+    toast.success('Excel-ready CSV exported with formula breakdown');
   };
 
   const sortedEntries = [...entries]
@@ -301,8 +308,8 @@ export default function EntriesTable() {
     return 'row-credit-zero';
   };
 
-  // Total columns count for colSpan (checkbox + 15 data cols + actions = 16)
-  const TABLE_COL_COUNT = 16;
+  // Total columns count for colSpan (checkbox + status + 15 data cols + actions = 17)
+  const TABLE_COL_COUNT = 17;
 
   return (
     <div className="space-y-6 p-4 md:p-6 section-gradient-entries min-h-screen">
@@ -311,10 +318,12 @@ export default function EntriesTable() {
           <h1 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">Entries</h1>
           <p className="text-muted-foreground text-sm">View and manage all distribution entries</p>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={entries.length === 0} className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 btn-glow">
-          <FileSpreadsheet className="w-4 h-4" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={exportCSV} disabled={entries.length === 0} className="gap-2 h-9 border-emerald-200 dark:border-emerald-800 export-excel-btn">
+            <FileSpreadsheet className="w-4 h-4" />
+            Export to Excel
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -513,6 +522,7 @@ export default function EntriesTable() {
                     <TableHead className="text-right sticky top-0 z-10 px-1">Old Rec.</TableHead>
                     <TableHead className="text-right sticky top-0 z-10 px-1">Ret by OB</TableHead>
                     <TableHead className="text-right sticky top-0 z-10 px-1">Total Rec.</TableHead>
+                    <TableHead className="text-center sticky top-0 z-10 px-1 w-8">Status</TableHead>
                     <TableHead className="text-right sticky top-0 z-10 px-1">Closing</TableHead>
                     <TableHead className="sticky top-0 z-10 px-1 no-print">Actions</TableHead>
                   </TableRow>
@@ -520,7 +530,7 @@ export default function EntriesTable() {
                 <TableBody>
                   {paginatedEntries.map((entry) => (
                     <React.Fragment key={entry.id}>
-                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} ${selectedIds.has(entry.id) ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''} cursor-pointer row-highlight`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
+                    <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} ${selectedIds.has(entry.id) ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''} cursor-pointer table-row-hover`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
                       <TableCell className="w-8 px-1" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => toggleSelect(entry.id)} className="flex items-center" aria-label={selectedIds.has(entry.id) ? 'Deselect' : 'Select'}>
                           {selectedIds.has(entry.id) ? (
@@ -573,6 +583,52 @@ export default function EntriesTable() {
                       </TableCell>
                       <TableCell className="text-right font-mono text-[11px] text-sky-700 dark:text-sky-300 font-semibold px-1">
                         {entry.totalRecovery.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center px-1" onClick={(e) => e.stopPropagation()}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center">
+                                <span className={`balance-status-dot ${entry.closingBalance <= 0 ? 'positive' : 'negative'}`} />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="calc-preview-popover">
+                              <div className="space-y-1">
+                                <p className="font-semibold text-emerald-700 dark:text-emerald-300 text-[10px] uppercase tracking-wider mb-1.5 flex items-center gap-1"><Calculator className="w-3 h-3" /> Calculation Preview</p>
+                                <div className="border-t border-emerald-200/30 dark:border-emerald-800/30 pt-1.5 space-y-0.5">
+                                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Credit Formula:</p>
+                                  <div className="calc-preview-row">
+                                    <span className="calc-preview-label">Summary</span>
+                                    <span className="calc-preview-operator">−</span>
+                                    <span className="calc-preview-value text-red-600 dark:text-red-400">{entry.stockReturn.toLocaleString()}</span>
+                                    <span className="calc-preview-operator">−</span>
+                                    <span className="calc-preview-value text-emerald-600 dark:text-emerald-400">{entry.cashReceived.toLocaleString()}</span>
+                                    <span className="calc-preview-operator">=</span>
+                                    <span className="calc-preview-result text-red-600 dark:text-red-400">{entry.creditPosted.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                                <div className="border-t border-emerald-200/30 dark:border-emerald-800/30 pt-1.5 space-y-0.5">
+                                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Closing Formula:</p>
+                                  <div className="calc-preview-row">
+                                    <span className="calc-preview-label">Opening</span>
+                                    <span className="calc-preview-operator">−</span>
+                                    <span className="calc-preview-value text-sky-600 dark:text-sky-400">{entry.oldRecovery.toLocaleString()}</span>
+                                    <span className="calc-preview-operator">−</span>
+                                    <span className="calc-preview-value text-orange-600 dark:text-orange-400">{entry.claimCleared.toLocaleString()}</span>
+                                    <span className="calc-preview-operator">−</span>
+                                    <span className="calc-preview-value text-purple-600 dark:text-purple-400">{entry.returnStockClaimByOB.toLocaleString()}</span>
+                                  </div>
+                                  <div className="calc-preview-row">
+                                    <span className="calc-preview-operator">+</span>
+                                    <span className="calc-preview-label">Credit</span>
+                                    <span className="calc-preview-operator">=</span>
+                                    <span className={`calc-preview-result ${entry.closingBalance <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{entry.closingBalance.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell className="text-right font-mono text-[11px] px-1">
                         <Badge
@@ -808,39 +864,70 @@ export default function EntriesTable() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Entry</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Edit Entry
+            </DialogTitle>
             <DialogDescription>Update the entry details below</DialogDescription>
           </DialogHeader>
           {editEntry && (
-            <EntryForm
-              editEntry={{
-                id: editEntry.id,
-                date: typeof editEntry.date === 'string' ? editEntry.date.split('T')[0] : String(editEntry.date),
-                orderBookerId: editEntry.orderBookerId,
-                companyId: editEntry.companyId,
-                openingBalance: editEntry.openingBalance,
-                summaryAmount: editEntry.summaryAmount,
-                stockReturn: editEntry.stockReturn,
-                postedSummary: editEntry.postedSummary,
-                cashReceived: editEntry.cashReceived,
-                creditPosted: editEntry.creditPosted,
-                claimCleared: editEntry.claimCleared,
-                oldRecovery: editEntry.oldRecovery,
-                returnStockClaimByOB: editEntry.returnStockClaimByOB,
-                totalRecovery: editEntry.totalRecovery,
-                closingBalance: editEntry.closingBalance,
-                notes: editEntry.notes,
-              }}
-              onSuccess={() => {
-                setEditDialogOpen(false);
-                setEditEntry(null);
-                fetchEntries();
-              }}
-              onCancel={() => {
-                setEditDialogOpen(false);
-                setEditEntry(null);
-              }}
-            />
+            <>
+              {/* Formula Preview */}
+              <div className="edit-formula-preview space-y-1.5 animate-fade-scale">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1"><Info className="w-3 h-3" /> Current Calculations</p>
+                <div className="edit-formula-row">
+                  <span className="text-muted-foreground">Credit =</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{(editEntry.summaryAmount ?? 0).toLocaleString()}</span>
+                  <span className="text-red-600 dark:text-red-400">− {(editEntry.stockReturn ?? 0).toLocaleString()}</span>
+                  <span className="text-sky-600 dark:text-sky-400">− {(editEntry.cashReceived ?? 0).toLocaleString()}</span>
+                  <span className="font-bold text-red-700 dark:text-red-300">= {(editEntry.creditPosted ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="edit-formula-row">
+                  <span className="text-muted-foreground">Closing =</span>
+                  <span className="text-amber-600 dark:text-amber-400">{(editEntry.openingBalance ?? 0).toLocaleString()}</span>
+                  <span className="text-sky-600 dark:text-sky-400">− {(editEntry.oldRecovery ?? 0).toLocaleString()}</span>
+                  <span className="text-orange-600 dark:text-orange-400">− {(editEntry.claimCleared ?? 0).toLocaleString()}</span>
+                  <span className="text-purple-600 dark:text-purple-400">− {(editEntry.returnStockClaimByOB ?? 0).toLocaleString()}</span>
+                  <span className="text-red-600 dark:text-red-400">+ {(editEntry.creditPosted ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="edit-formula-result">
+                  <span className="text-muted-foreground">Closing Balance = </span>
+                  <span className={(editEntry.closingBalance ?? 0) <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                    {(editEntry.closingBalance ?? 0).toLocaleString()}
+                  </span>
+                  <span className={`ml-2 inline-block w-2 h-2 rounded-full ${(editEntry.closingBalance ?? 0) <= 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                </div>
+              </div>
+              <EntryForm
+                editEntry={{
+                  id: editEntry.id,
+                  date: typeof editEntry.date === 'string' ? editEntry.date.split('T')[0] : String(editEntry.date),
+                  orderBookerId: editEntry.orderBookerId,
+                  companyId: editEntry.companyId,
+                  openingBalance: editEntry.openingBalance,
+                  summaryAmount: editEntry.summaryAmount,
+                  stockReturn: editEntry.stockReturn,
+                  postedSummary: editEntry.postedSummary,
+                  cashReceived: editEntry.cashReceived,
+                  creditPosted: editEntry.creditPosted,
+                  claimCleared: editEntry.claimCleared,
+                  oldRecovery: editEntry.oldRecovery,
+                  returnStockClaimByOB: editEntry.returnStockClaimByOB,
+                  totalRecovery: editEntry.totalRecovery,
+                  closingBalance: editEntry.closingBalance,
+                  notes: editEntry.notes,
+                }}
+                onSuccess={() => {
+                  setEditDialogOpen(false);
+                  setEditEntry(null);
+                  fetchEntries();
+                }}
+                onCancel={() => {
+                  setEditDialogOpen(false);
+                  setEditEntry(null);
+                }}
+              />
+            </>
           )}
         </DialogContent>
       </Dialog>

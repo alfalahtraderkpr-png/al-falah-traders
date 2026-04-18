@@ -2351,3 +2351,380 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   color: oklch(0.95 0.01 155);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* ===== TASK ID 3 - ENHANCED STYLING & FEATURES ===== */
+
+/* Slide in from right animation */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Fade in with slight scale */
+@keyframes fadeScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-scale {
+  animation: fadeScale 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Table row hover - smooth highlight */
+.table-row-hover {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.table-row-hover:hover {
+  box-shadow: inset 3px 0 0 #059669;
+}
+.dark .table-row-hover:hover {
+  box-shadow: inset 3px 0 0 #34d399;
+}
+.table-row-hover:active {
+  transform: scale(0.999);
+}
+
+/* Balance bar - animated progress bars */
+.balance-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: oklch(0.93 0.01 155);
+  overflow: hidden;
+}
+.dark .balance-bar {
+  background: oklch(0.25 0.02 155);
+}
+.balance-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.balance-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+  animation: progressShimmer 2s ease-in-out infinite;
+}
+.balance-bar-fill.emerald { background: linear-gradient(90deg, #059669, #34d399); }
+.balance-bar-fill.amber { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.balance-bar-fill.red { background: linear-gradient(90deg, #dc2626, #f87171); }
+.balance-bar-fill.sky { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+.balance-bar-fill.violet { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.balance-bar-fill.orange { background: linear-gradient(90deg, #ea580c, #fb923c); }
+
+/* Credit flow arrow - animated arrow for credit flow diagrams */
+@keyframes creditFlowPulse {
+  0% { transform: translateX(0); opacity: 0.4; }
+  50% { transform: translateX(4px); opacity: 1; }
+  100% { transform: translateX(0); opacity: 0.4; }
+}
+.credit-flow-arrow {
+  animation: creditFlowPulse 2s ease-in-out infinite;
+  color: #059669;
+}
+.dark .credit-flow-arrow {
+  color: #34d399;
+}
+
+/* Subtle shimmer for loading states */
+@keyframes shimmerSubtle {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer-subtle {
+  background: linear-gradient(90deg,
+    oklch(0.95 0.005 155) 25%,
+    oklch(0.92 0.01 155) 50%,
+    oklch(0.95 0.005 155) 75%);
+  background-size: 200% 100%;
+  animation: shimmerSubtle 2.5s ease-in-out infinite;
+}
+.dark .shimmer-subtle {
+  background: linear-gradient(90deg,
+    oklch(0.20 0.01 155) 25%,
+    oklch(0.24 0.015 155) 50%,
+    oklch(0.20 0.01 155) 75%);
+  background-size: 200% 100%;
+  animation: shimmerSubtle 2.5s ease-in-out infinite;
+}
+
+/* Animated gradient border effect */
+@keyframes gradientBorderRotate {
+  0% { --gradient-angle: 0deg; }
+  100% { --gradient-angle: 360deg; }
+}
+.gradient-border-animated {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+.gradient-border-animated::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from 0deg, #059669, #34d399, #0284c7, #059669);
+  background-size: 100% 100%;
+  animation: gradientBorderSpin 3s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+@keyframes gradientBorderSpin {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+/* Calculation Preview Popover */
+.calc-preview-popover {
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  min-width: 280px;
+}
+.calc-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0;
+}
+.calc-preview-label {
+  color: oklch(0.50 0.03 155);
+  min-width: 80px;
+}
+.dark .calc-preview-label { color: oklch(0.65 0.03 155); }
+.calc-preview-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.calc-preview-operator {
+  font-weight: 700;
+  color: #059669;
+  font-size: 0.875rem;
+}
+.dark .calc-preview-operator { color: #34d399; }
+.calc-preview-result {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(5, 150, 105, 0.1);
+}
+.dark .calc-preview-result {
+  background: rgba(52, 211, 153, 0.15);
+}
+
+/* Balance status dot indicator */
+.balance-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.balance-status-dot.positive {
+  background: #059669;
+  box-shadow: 0 0 6px rgba(5, 150, 105, 0.5);
+}
+.balance-status-dot.negative {
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.5);
+  animation: gentle-pulse 2s ease-in-out infinite;
+}
+
+/* Alternating row colors for entries table */
+.table-modern tbody tr:nth-child(4n+1) {
+  background: transparent;
+}
+.table-modern tbody tr:nth-child(4n+2) {
+  background: oklch(0.985 0.002 155);
+}
+.table-modern tbody tr:nth-child(4n+3) {
+  background: transparent;
+}
+.table-modern tbody tr:nth-child(4n+4) {
+  background: oklch(0.98 0.004 155);
+}
+.dark .table-modern tbody tr:nth-child(4n+2) {
+  background: oklch(0.155 0.005 155);
+}
+.dark .table-modern tbody tr:nth-child(4n+4) {
+  background: oklch(0.16 0.008 155);
+}
+
+/* Credit flow visualization */
+.credit-flow-vis {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.credit-flow-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid;
+  min-width: 60px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+.credit-flow-block:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+.credit-flow-block.positive {
+  background: rgba(5, 150, 105, 0.08);
+  border-color: rgba(5, 150, 105, 0.2);
+}
+.dark .credit-flow-block.positive {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+.credit-flow-block.negative {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+.dark .credit-flow-block.negative {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+.credit-flow-block.result {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.2);
+}
+.dark .credit-flow-block.result {
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.2);
+}
+.credit-flow-block-label {
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.credit-flow-block-value {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* Aging bar with percentage label */
+.aging-bar-container {
+  position: relative;
+}
+.aging-bar {
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+  gap: 1px;
+}
+.aging-bar-segment {
+  height: 100%;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.aging-bar-segment:hover {
+  opacity: 0.8;
+}
+.aging-percent-label {
+  position: absolute;
+  right: 0;
+  top: -16px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* OB Performance card */
+.ob-performance-card {
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+.ob-performance-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+.dark .ob-performance-card:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.25);
+}
+.ob-performance-card.good {
+  background: rgba(5, 150, 105, 0.05);
+  border-color: rgba(5, 150, 105, 0.15);
+}
+.dark .ob-performance-card.good {
+  background: rgba(52, 211, 153, 0.05);
+  border-color: rgba(52, 211, 153, 0.15);
+}
+.ob-performance-card.warning {
+  background: rgba(220, 38, 38, 0.05);
+  border-color: rgba(220, 38, 38, 0.15);
+}
+.dark .ob-performance-card.warning {
+  background: rgba(248, 113, 113, 0.05);
+  border-color: rgba(248, 113, 113, 0.15);
+}
+
+/* Edit dialog formula preview */
+.edit-formula-preview {
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, oklch(0.97 0.005 155), oklch(0.95 0.01 155));
+  border: 1px dashed oklch(0.85 0.02 155);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+}
+.dark .edit-formula-preview {
+  background: linear-gradient(135deg, oklch(0.16 0.01 155), oklch(0.14 0.015 155));
+  border-color: oklch(0.28 0.02 155);
+}
+.edit-formula-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0;
+}
+.edit-formula-result {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid oklch(0.85 0.02 155);
+  margin-top: 0.25rem;
+}
+.dark .edit-formula-result {
+  border-top-color: oklch(0.28 0.02 155);
+}
+
+/* Export button styling */
+.export-excel-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.export-excel-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+.export-excel-btn:hover::after {
+  transform: translateX(100%);
+}

@@ -5,19 +5,24 @@ import { getSession } from '@/lib/auth'
 /**
  * Dashboard API
  *
- * Aggregated totals include:
- * - totalSales: sum of summaryAmount
- * - totalRecovery: sum of (cashReceived + oldRecovery + claimCleared + returnStockClaimByOB) per entry
- * - totalCredit: sum of creditPosted
- * - totalStockReturn: sum of stockReturn
- * - totalOldRecovery: sum of oldRecovery
- * - totalClaimCleared: sum of claimCleared
- * - totalReturnStockByOB: sum of returnStockClaimByOB
+ * Business Formulas (Al-Falah Traders):
+ * =====================================
+ * CREDIT = Total Summary - Stock Return - Summary Cash
+ *   (i.e., creditPosted = summaryAmount - stockReturn - cashReceived)
  *
- * Formula (per entry):
- * - Credit Posted = Summary Amount - Stock Return - Cash Received
- * - Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
- * - Closing Balance = Opening Balance - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
+ * CLOSING CREDIT = Today Opening Credit - Old Recovery - Claim Cleared
+ *                  - Return Stock/Claim by OB + Credit Posted
+ *   (i.e., closingBalance = openingBalance - oldRecovery - claimCleared
+ *          - returnStockClaimByOB + creditPosted)
+ *
+ * TOTAL RECOVERY = Summary Cash + Old Recovery + Claim Cleared + Return Stock/Claim by OB
+ *   (i.e., totalRecovery = cashReceived + oldRecovery + claimCleared + returnStockClaimByOB)
+ *
+ * Example:
+ *   Opening: 10000, Old Recovery: 2000, Summary: 10000,
+ *   Cash: 5000, Stock Return: 0, Claim Cleared: 1000
+ *   Credit = 10000 - 0 - 5000 = 5000
+ *   Closing = 10000 - 2000 - 1000 - 0 + 5000 = 12000
  */
 export async function GET(request: NextRequest) {
   try {
@@ -50,33 +55,33 @@ export async function GET(request: NextRequest) {
     })
 
     // Aggregated totals
-    const totalSales = entries.reduce((sum, e) => sum + e.summaryAmount, 0)
+    const totalSales = entries.reduce((sum, e) => sum + (e.summaryAmount ?? 0), 0)
     const totalCashReceived = entries.reduce(
-      (sum, e) => sum + e.cashReceived,
+      (sum, e) => sum + (e.cashReceived ?? 0),
       0
     )
-    const totalCredit = entries.reduce((sum, e) => sum + e.creditPosted, 0)
+    const totalCredit = entries.reduce((sum, e) => sum + (e.creditPosted ?? 0), 0)
     const totalStockReturn = entries.reduce(
-      (sum, e) => sum + e.stockReturn,
+      (sum, e) => sum + (e.stockReturn ?? 0),
       0
     )
     const totalOldRecovery = entries.reduce(
-      (sum, e) => sum + e.oldRecovery,
+      (sum, e) => sum + (e.oldRecovery ?? 0),
       0
     )
     const totalClaimCleared = entries.reduce(
-      (sum, e) => sum + e.claimCleared,
+      (sum, e) => sum + (e.claimCleared ?? 0),
       0
     )
     const totalReturnStockByOB = entries.reduce(
-      (sum, e) => sum + e.returnStockClaimByOB,
+      (sum, e) => sum + (e.returnStockClaimByOB ?? 0),
       0
     )
     // Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
     const totalRecovery =
       totalCashReceived + totalOldRecovery + totalClaimCleared + totalReturnStockByOB
 
-    // Per Order Booker breakdown
+    // Per Order Booker breakdown with closing credit calculation
     const obMap = new Map<
       string,
       {
@@ -91,6 +96,8 @@ export async function GET(request: NextRequest) {
         totalClaimCleared: number
         totalReturnStockByOB: number
         entryCount: number
+        openingCredit: number
+        closingCredit: number
       }
     >()
 
@@ -109,22 +116,102 @@ export async function GET(request: NextRequest) {
           totalClaimCleared: 0,
           totalReturnStockByOB: 0,
           entryCount: 0,
+          openingCredit: 0,
+          closingCredit: 0,
         })
       }
       const obData = obMap.get(obId)!
-      obData.totalSales += entry.summaryAmount
-      obData.totalCashReceived += entry.cashReceived
-      obData.totalCredit += entry.creditPosted
-      obData.totalStockReturn += entry.stockReturn
-      obData.totalOldRecovery += entry.oldRecovery
-      obData.totalClaimCleared += entry.claimCleared
-      obData.totalReturnStockByOB += entry.returnStockClaimByOB
+      obData.totalSales += entry.summaryAmount ?? 0
+      obData.totalCashReceived += entry.cashReceived ?? 0
+      obData.totalCredit += entry.creditPosted ?? 0
+      obData.totalStockReturn += entry.stockReturn ?? 0
+      obData.totalOldRecovery += entry.oldRecovery ?? 0
+      obData.totalClaimCleared += entry.claimCleared ?? 0
+      obData.totalReturnStockByOB += entry.returnStockClaimByOB ?? 0
       obData.totalRecovery =
         obData.totalCashReceived +
         obData.totalOldRecovery +
         obData.totalClaimCleared +
         obData.totalReturnStockByOB
       obData.entryCount++
+    }
+
+    // Get opening and closing credit per OB from BalanceHistory
+    // For each OB, find the opening balance before dateFrom and the closing balance at dateTo
+    const obIds = Array.from(obMap.keys())
+
+    for (const obId of obIds) {
+      const obData = obMap.get(obId)!
+
+      // Find the most recent balance before the date range (opening credit)
+      const openDate = dateFrom ? new Date(dateFrom) : new Date('2000-01-01')
+      const openingBalance = await db.balanceHistory.findFirst({
+        where: {
+          orderBookerId: obId,
+          date: { lt: openDate },
+        },
+        orderBy: { date: 'desc' },
+      })
+      obData.openingCredit = openingBalance?.closingBalance ?? 0
+
+      // Find the most recent balance in or before the date range (closing credit)
+      const closeDate = dateTo ? new Date(dateTo) : new Date()
+      const closingBalance = await db.balanceHistory.findFirst({
+        where: {
+          orderBookerId: obId,
+          date: { lte: closeDate },
+        },
+        orderBy: { date: 'desc' },
+      })
+      // Closing credit = closing balance from balance history
+      // This is the sum of all OB+Company closing balances for this OB
+      obData.closingCredit = closingBalance?.closingBalance ?? 0
+    }
+
+    // Actually, let's compute closing credit properly by summing all balance history entries
+    // for each OB at the latest date
+    for (const obId of obIds) {
+      const obData = obMap.get(obId)!
+
+      // Get ALL balance history entries for this OB, find the latest closing balances per company
+      const latestBalances = await db.balanceHistory.findMany({
+        where: {
+          orderBookerId: obId,
+          ...(dateTo ? { date: { lte: new Date(dateTo) } } : {}),
+        },
+        orderBy: { date: 'desc' },
+        include: { company: { select: { id: true } } },
+      })
+
+      // Sum the latest closing balance per company
+      const companyClosingMap = new Map<string, number>()
+      for (const bal of latestBalances) {
+        if (!companyClosingMap.has(bal.companyId)) {
+          companyClosingMap.set(bal.companyId, bal.closingBalance ?? 0)
+        }
+      }
+      obData.closingCredit = Array.from(companyClosingMap.values()).reduce((s, v) => s + v, 0)
+
+      // Get opening credit: sum of latest balances per company BEFORE the date range
+      if (dateFrom) {
+        const openingBalances = await db.balanceHistory.findMany({
+          where: {
+            orderBookerId: obId,
+            date: { lt: new Date(dateFrom) },
+          },
+          orderBy: { date: 'desc' },
+        })
+        const companyOpeningMap = new Map<string, number>()
+        for (const bal of openingBalances) {
+          if (!companyOpeningMap.has(bal.companyId)) {
+            companyOpeningMap.set(bal.companyId, bal.closingBalance ?? 0)
+          }
+        }
+        obData.openingCredit = Array.from(companyOpeningMap.values()).reduce((s, v) => s + v, 0)
+      } else {
+        // No date filter - opening is 0 (or we can use the earliest balance)
+        obData.openingCredit = 0
+      }
     }
 
     // Per Company breakdown
@@ -163,13 +250,13 @@ export async function GET(request: NextRequest) {
         })
       }
       const cData = companyMap.get(cId)!
-      cData.totalSales += entry.summaryAmount
-      cData.totalCashReceived += entry.cashReceived
-      cData.totalCredit += entry.creditPosted
-      cData.totalStockReturn += entry.stockReturn
-      cData.totalOldRecovery += entry.oldRecovery
-      cData.totalClaimCleared += entry.claimCleared
-      cData.totalReturnStockByOB += entry.returnStockClaimByOB
+      cData.totalSales += entry.summaryAmount ?? 0
+      cData.totalCashReceived += entry.cashReceived ?? 0
+      cData.totalCredit += entry.creditPosted ?? 0
+      cData.totalStockReturn += entry.stockReturn ?? 0
+      cData.totalOldRecovery += entry.oldRecovery ?? 0
+      cData.totalClaimCleared += entry.claimCleared ?? 0
+      cData.totalReturnStockByOB += entry.returnStockClaimByOB ?? 0
       cData.totalRecovery =
         cData.totalCashReceived +
         cData.totalOldRecovery +
@@ -212,13 +299,13 @@ export async function GET(request: NextRequest) {
         })
       }
       const dData = dailyMap.get(dateKey)!
-      dData.totalSales += entry.summaryAmount
-      dData.totalCashReceived += entry.cashReceived
-      dData.totalCredit += entry.creditPosted
-      dData.totalStockReturn += entry.stockReturn
-      dData.totalOldRecovery += entry.oldRecovery
-      dData.totalClaimCleared += entry.claimCleared
-      dData.totalReturnStockByOB += entry.returnStockClaimByOB
+      dData.totalSales += entry.summaryAmount ?? 0
+      dData.totalCashReceived += entry.cashReceived ?? 0
+      dData.totalCredit += entry.creditPosted ?? 0
+      dData.totalStockReturn += entry.stockReturn ?? 0
+      dData.totalOldRecovery += entry.oldRecovery ?? 0
+      dData.totalClaimCleared += entry.claimCleared ?? 0
+      dData.totalReturnStockByOB += entry.returnStockClaimByOB ?? 0
       dData.totalRecovery =
         dData.totalCashReceived +
         dData.totalOldRecovery +
@@ -232,6 +319,16 @@ export async function GET(request: NextRequest) {
       (a, b) => a.date.localeCompare(b.date)
     )
 
+    // Calculate total opening and closing credit across all OBs
+    const totalOpeningCredit = Array.from(obMap.values()).reduce(
+      (sum, ob) => sum + ob.openingCredit,
+      0
+    )
+    const totalClosingCredit = Array.from(obMap.values()).reduce(
+      (sum, ob) => sum + ob.closingCredit,
+      0
+    )
+
     return NextResponse.json({
       summary: {
         totalSales,
@@ -242,6 +339,8 @@ export async function GET(request: NextRequest) {
         totalOldRecovery,
         totalClaimCleared,
         totalReturnStockByOB,
+        totalOpeningCredit,
+        totalClosingCredit,
         entryCount: entries.length,
       },
       orderBookerBreakdown: Array.from(obMap.values()).sort((a, b) =>

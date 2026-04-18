@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { date: 'asc' },
+      include: {
+        orderBooker: { select: { id: true, name: true } },
+      },
     })
 
     // Group by date and calculate totals
@@ -40,6 +43,20 @@ export async function GET(request: NextRequest) {
       totalRecovery: number
       totalCredit: number
       totalStockReturn: number
+      entryCount: number
+    }>()
+
+    // Group by date+OB for OB performance
+    const obDailyMap = new Map<string, {
+      date: string
+      orderBookerId: string
+      orderBookerName: string
+      totalSummary: number
+      totalCash: number
+      totalCredit: number
+      totalRecovery: number
+      openingBalance: number
+      closingBalance: number
       entryCount: number
     }>()
 
@@ -63,6 +80,31 @@ export async function GET(request: NextRequest) {
           entryCount: 1,
         })
       }
+
+      // OB-level grouping
+      const obKey = `${dateKey}-${entry.orderBookerId}`
+      const obExisting = obDailyMap.get(obKey)
+      if (obExisting) {
+        obExisting.totalSummary += entry.summaryAmount
+        obExisting.totalCash += entry.cashReceived
+        obExisting.totalCredit += entry.creditPosted
+        obExisting.totalRecovery += entry.cashReceived + entry.oldRecovery + entry.claimCleared + entry.returnStockClaimByOB
+        obExisting.closingBalance = entry.closingBalance
+        obExisting.entryCount += 1
+      } else {
+        obDailyMap.set(obKey, {
+          date: dateKey,
+          orderBookerId: entry.orderBookerId,
+          orderBookerName: entry.orderBooker?.name ?? 'Unknown',
+          totalSummary: entry.summaryAmount,
+          totalCash: entry.cashReceived,
+          totalCredit: entry.creditPosted,
+          totalRecovery: entry.cashReceived + entry.oldRecovery + entry.claimCleared + entry.returnStockClaimByOB,
+          openingBalance: entry.openingBalance,
+          closingBalance: entry.closingBalance,
+          entryCount: 1,
+        })
+      }
     }
 
     // Calculate recovery rate and build response
@@ -72,6 +114,14 @@ export async function GET(request: NextRequest) {
         ? Math.round((day.totalRecovery / day.totalSales) * 10000) / 100
         : 0,
     }))
+
+    // Build OB daily performance map (keyed by date)
+    const obPerformanceByDate = new Map<string, typeof obDailyMap extends Map<string, infer V> ? V[] : never>()
+    for (const [, obData] of obDailyMap) {
+      const dateEntries = obPerformanceByDate.get(obData.date) || []
+      dateEntries.push(obData)
+      obPerformanceByDate.set(obData.date, dateEntries)
+    }
 
     // Monthly summary
     const monthlySummary = {
@@ -99,6 +149,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       dailySummary,
       monthlySummary,
+      obPerformanceByDate: Object.fromEntries(obPerformanceByDate),
     })
   } catch (error) {
     console.error('Daily summary error:', error)

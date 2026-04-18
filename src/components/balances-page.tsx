@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Wallet, Search, RefreshCw, ArrowRight, CheckCircle, AlertTriangle, Clock,
   TrendingDown, ChevronDown, ChevronUp, HandCoins, PieChart as PieChartIcon,
+  TrendingUp, CreditCard, BarChart3, ArrowDownRight, ArrowUpRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -230,6 +231,109 @@ export default function BalancesPage() {
       {/* Overall Summary */}
       {!loading && data && (
         <>
+          {/* Total Outstanding Summary Card */}
+          <Card className="animate-fade-in-up border-emerald-200 dark:border-emerald-800 gradient-border-animated">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Total Outstanding Across All OBs</h3>
+                    <p className="text-[10px] text-muted-foreground">{filteredBalances.length} order booker{filteredBalances.length !== 1 ? 's' : ''} with outstanding balances</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+                    {formatPKR(data.overallTotal)}
+                  </p>
+                  <div className="flex items-center gap-1.5 justify-end mt-1">
+                    {data.overallTotal > 0 && (
+                      <Badge className="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-0 text-[9px]">
+                        <ArrowUpRight className="w-2.5 h-2.5 mr-0.5" />
+                        Outstanding
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-OB Credit Flow Visualization */}
+              {filteredBalances.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-emerald-200/30 dark:border-emerald-800/30">
+                  <h4 className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-3 flex items-center gap-1">
+                    <BarChart3 className="w-3 h-3" /> Credit Flow by Order Booker
+                  </h4>
+                  <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                    {filteredBalances.map((ob) => {
+                      const maxOutstanding = Math.max(...filteredBalances.map(o => o.totalOutstanding), 1);
+                      const barWidth = Math.max((ob.totalOutstanding / maxOutstanding) * 100, 2);
+                      const totalAging = (ob.aging.current ?? 0) + (ob.aging.thirtyToSixty ?? 0) + (ob.aging.sixtyToNinety ?? 0) + (ob.aging.overNinety ?? 0);
+                      const currentPct = totalAging > 0 ? ((ob.aging.current ?? 0) / totalAging) * 100 : 0;
+                      const thirtyPct = totalAging > 0 ? ((ob.aging.thirtyToSixty ?? 0) / totalAging) * 100 : 0;
+                      const sixtyPct = totalAging > 0 ? ((ob.aging.sixtyToNinety ?? 0) / totalAging) * 100 : 0;
+                      const overPct = totalAging > 0 ? ((ob.aging.overNinety ?? 0) / totalAging) * 100 : 0;
+                      return (
+                        <div key={ob.orderBookerId} className="ob-performance-card warning animate-slide-in-right" style={{ animationDelay: `${filteredBalances.indexOf(ob) * 0.05}s` }}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[9px] font-bold shadow-sm">
+                                {ob.orderBookerName.charAt(0)}
+                              </div>
+                              <span className="text-xs font-medium">{ob.orderBookerName}</span>
+                              {getOutstandingBadge(ob.totalOutstanding)}
+                            </div>
+                            <span className="text-xs font-mono font-bold text-red-700 dark:text-red-400">{formatPKR(ob.totalOutstanding)}</span>
+                          </div>
+                          {/* Color-coded bar: Opening Credit → Deductions → Additions → Closing Credit */}
+                          <div className="credit-flow-vis mb-2">
+                            <div className="credit-flow-block negative">
+                              <span className="credit-flow-block-label text-red-600 dark:text-red-400">Outstanding</span>
+                              <span className="credit-flow-block-value text-red-700 dark:text-red-300">{(ob.totalOutstanding ?? 0).toLocaleString()}</span>
+                            </div>
+                            <span className="credit-flow-arrow text-xs">→</span>
+                            <div className="credit-flow-block positive">
+                              <span className="credit-flow-block-label text-emerald-600 dark:text-emerald-400">Current</span>
+                              <span className="credit-flow-block-value text-emerald-700 dark:text-emerald-300">{(ob.aging.current ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="credit-flow-block negative">
+                              <span className="credit-flow-block-label text-amber-600 dark:text-amber-400">30-60d</span>
+                              <span className="credit-flow-block-value text-amber-700 dark:text-amber-300">{(ob.aging.thirtyToSixty ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="credit-flow-block negative">
+                              <span className="credit-flow-block-label text-orange-600 dark:text-orange-400">60-90d</span>
+                              <span className="credit-flow-block-value text-orange-700 dark:text-orange-300">{(ob.aging.sixtyToNinety ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="credit-flow-block negative">
+                              <span className="credit-flow-block-label text-red-600 dark:text-red-400">90+d</span>
+                              <span className="credit-flow-block-value text-red-700 dark:text-red-300">{(ob.aging.overNinety ?? 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          {/* Visual bar */}
+                          <div className="aging-bar-container">
+                            <div className="aging-bar">
+                              {currentPct > 0 && <div className="aging-bar-segment bg-emerald-500" style={{ width: `${currentPct}%` }} title={`Current: ${(currentPct).toFixed(0)}%`} />}
+                              {thirtyPct > 0 && <div className="aging-bar-segment bg-amber-500" style={{ width: `${thirtyPct}%` }} title={`30-60d: ${(thirtyPct).toFixed(0)}%`} />}
+                              {sixtyPct > 0 && <div className="aging-bar-segment bg-orange-500" style={{ width: `${sixtyPct}%` }} title={`60-90d: ${(sixtyPct).toFixed(0)}%`} />}
+                              {overPct > 0 && <div className="aging-bar-segment bg-red-500" style={{ width: `${overPct}%` }} title={`90+d: ${(overPct).toFixed(0)}%`} />}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                              {currentPct > 0 && <span className="flex items-center gap-1 text-[8px]"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Current {(currentPct).toFixed(0)}%</span>}
+                              {thirtyPct > 0 && <span className="flex items-center gap-1 text-[8px]"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> 30-60d {(thirtyPct).toFixed(0)}%</span>}
+                              {sixtyPct > 0 && <span className="flex items-center gap-1 text-[8px]"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> 60-90d {(sixtyPct).toFixed(0)}%</span>}
+                              {overPct > 0 && <span className="flex items-center gap-1 text-[8px]"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> 90+d {(overPct).toFixed(0)}%</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Overall Total + Aging Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className={`lg:col-span-2 card-hover animate-fade-in-up stagger-2 border ${getOutstandingColor(data.overallTotal).border}`}>

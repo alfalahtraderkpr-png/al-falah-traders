@@ -36,6 +36,8 @@ interface DashboardAPIResponse {
     totalOldRecovery: number;
     totalClaimCleared: number;
     totalReturnStockByOB: number;
+    totalOpeningCredit: number;
+    totalClosingCredit: number;
     entryCount: number;
   };
   orderBookerBreakdown: {
@@ -49,6 +51,8 @@ interface DashboardAPIResponse {
     totalOldRecovery: number;
     totalClaimCleared: number;
     totalReturnStockByOB: number;
+    openingCredit: number;
+    closingCredit: number;
     entryCount: number;
   }[];
   companyBreakdown: {
@@ -80,14 +84,16 @@ interface DashboardAPIResponse {
 
 const COLORS = ['#059669', '#d97706', '#0284c7', '#dc2626', '#7c3aed', '#db2777', '#0891b2', '#65a30d'];
 
-function formatPKR(value: number): string {
-  return `PKR ${value.toLocaleString('en-PK')}`;
+function formatPKR(value: number | null | undefined): string {
+  const safeValue = value ?? 0;
+  return `PKR ${safeValue.toLocaleString('en-PK')}`;
 }
 
-function formatCompact(value: number): string {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-  return value.toString();
+function formatCompact(value: number | null | undefined): string {
+  const safeValue = value ?? 0;
+  if (safeValue >= 1000000) return `${(safeValue / 1000000).toFixed(1)}M`;
+  if (safeValue >= 1000) return `${(safeValue / 1000).toFixed(0)}K`;
+  return safeValue.toString();
 }
 
 interface RecentEntry {
@@ -285,6 +291,9 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
   const totalOldRecovery = data?.summary?.totalOldRecovery || 0;
   const totalClaimCleared = data?.summary?.totalClaimCleared || 0;
   const totalReturnStockByOB = data?.summary?.totalReturnStockByOB || 0;
+  const totalOpeningCredit = data?.summary?.totalOpeningCredit || 0;
+  const totalClosingCredit = data?.summary?.totalClosingCredit || 0;
+  const creditReduction = totalOpeningCredit > 0 ? ((totalOpeningCredit - totalClosingCredit) / totalOpeningCredit) * 100 : 0;
   const netRecoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
   const creditToSalesRatio = totalSales > 0 ? (totalCredit / totalSales) * 100 : 0;
 
@@ -390,6 +399,22 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       prevValue: undefined,
       compChange: null,
     },
+    {
+      title: 'Closing Credit',
+      subtitle: 'Net Outstanding Balance',
+      value: formatPKR(totalClosingCredit),
+      compact: formatCompact(totalClosingCredit),
+      icon: Wallet,
+      trend: totalClosingCredit <= totalOpeningCredit ? 'up' as const : 'down' as const,
+      color: 'text-violet-600 dark:text-violet-400',
+      bg: 'bg-violet-50 dark:bg-violet-950/50',
+      borderColor: 'border-violet-200 dark:border-violet-800',
+      kpiClass: 'kpi-closing-credit',
+      progressValue: totalOpeningCredit > 0 ? Math.max(0, 100 - (totalClosingCredit / totalOpeningCredit) * 100) : 0,
+      momChange: null,
+      prevValue: undefined,
+      compChange: null,
+    },
   ];
 
   const trendChartConfig = {
@@ -414,7 +439,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       return { obName: ob.name, type: 'growth' as const, detail: `${rate.toFixed(0)}% recovery rate`, rate, credit: ob.totalCredit, sales: ob.totalSales };
     }
     if (ob.totalCredit > 0) {
-      return { obName: ob.name, type: 'risk' as const, detail: `PKR ${ob.totalCredit.toLocaleString()} outstanding`, rate, credit: ob.totalCredit, sales: ob.totalSales };
+      return { obName: ob.name, type: 'risk' as const, detail: `PKR ${(ob.totalCredit ?? 0).toLocaleString()} outstanding`, rate, credit: ob.totalCredit ?? 0, sales: ob.totalSales ?? 0 };
     }
     return null;
   }).filter(Boolean) as { obName: string; type: 'growth' | 'risk'; detail: string; rate: number; credit: number; sales: number }[];
@@ -431,7 +456,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
             <div>
               <p className="text-sm font-semibold">Today&apos;s Summary</p>
               <p className="text-xs text-emerald-100">
-                PKR {todaySummary.sales.toLocaleString()} sales, PKR {todaySummary.recovery.toLocaleString()} recovery, PKR {todaySummary.credit.toLocaleString()} credit across {todaySummary.entries} {todaySummary.entries === 1 ? 'entry' : 'entries'}
+                PKR {(todaySummary.sales ?? 0).toLocaleString()} sales, PKR {(todaySummary.recovery ?? 0).toLocaleString()} recovery, PKR {(todaySummary.credit ?? 0).toLocaleString()} credit across {todaySummary.entries} {todaySummary.entries === 1 ? 'entry' : 'entries'}
               </p>
             </div>
           </div>
@@ -571,9 +596,9 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="animate-fade-in-up">
                 <CardContent className="p-6">
                   <Skeleton className="h-4 w-24 mb-2" />
@@ -638,6 +663,80 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
               </Card>
             ))}
       </div>
+
+      {/* Credit Calculation Formula */}
+      {!loading && data && (
+        <Card className="glass-card-v2 card-hover border border-violet-200/50 dark:border-violet-800/50 animate-fade-in-up">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 section-header-enhanced">
+              <Zap className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              Credit Calculation Formula
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Row 1: CREDIT = Total Summary - Stock Return - Summary Cash */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Credit Posted Calculation</p>
+              <div className="calc-flow-diagram flex-wrap gap-y-2">
+                <span className="flow-step font-bold text-violet-700 dark:text-violet-300">CREDIT</span>
+                <span className="flow-operator">=</span>
+                <span className="flow-step text-emerald-700 dark:text-emerald-300">{formatPKR(totalSales ?? 0)}</span>
+                <span className="flow-operator text-red-500 dark:text-red-400">−</span>
+                <span className="flow-step text-red-600 dark:text-red-400">{formatPKR(totalStockReturn ?? 0)}</span>
+                <span className="flow-operator text-red-500 dark:text-red-400">−</span>
+                <span className="flow-step text-red-600 dark:text-red-400">{formatPKR(totalCashReceived ?? 0)}</span>
+                <span className="flow-operator">=</span>
+                <span className="flow-step font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 border-violet-300 dark:border-violet-700">{formatPKR(totalCredit ?? 0)}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 mt-1.5 ml-1">
+                Total Summary − Stock Return − Summary Cash = Credit Posted
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-dashed border-violet-200 dark:border-violet-800/50" />
+
+            {/* Row 2: CLOSING CREDIT = Opening Credit - Old Recovery - Claim Cleared - Return Stock/OB + Credit */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Closing Credit Calculation</p>
+              <div className="calc-flow-diagram flex-wrap gap-y-2">
+                <span className="flow-step font-bold text-violet-700 dark:text-violet-300">CLOSING CREDIT</span>
+                <span className="flow-operator">=</span>
+                <span className="flow-step text-emerald-700 dark:text-emerald-300">{formatPKR(totalOpeningCredit ?? 0)}</span>
+                <span className="flow-operator text-red-500 dark:text-red-400">−</span>
+                <span className="flow-step text-red-600 dark:text-red-400">{formatPKR(totalOldRecovery ?? 0)}</span>
+                <span className="flow-operator text-red-500 dark:text-red-400">−</span>
+                <span className="flow-step text-red-600 dark:text-red-400">{formatPKR(totalClaimCleared ?? 0)}</span>
+                <span className="flow-operator text-red-500 dark:text-red-400">−</span>
+                <span className="flow-step text-red-600 dark:text-red-400">{formatPKR(totalReturnStockByOB ?? 0)}</span>
+                <span className="flow-operator text-emerald-500 dark:text-emerald-400">+</span>
+                <span className="flow-step text-emerald-600 dark:text-emerald-400">{formatPKR(totalCredit ?? 0)}</span>
+                <span className="flow-operator">=</span>
+                <span className="flow-step font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 border-violet-300 dark:border-violet-700">{formatPKR(totalClosingCredit ?? 0)}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 mt-1.5 ml-1">
+                Opening Credit − Old Recovery (Sabqa Wasooli) − Claim Cleared − Return Stock/OB + Credit Posted = Closing Credit
+              </p>
+            </div>
+
+            {/* Credit Reduction Summary */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-800/50">
+              <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                <TrendingDown className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Credit Reduction</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {formatPKR(totalOpeningCredit ?? 0)} → {formatPKR(totalClosingCredit ?? 0)}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono font-bold border-violet-200 text-violet-700 dark:border-violet-800 dark:text-violet-300">
+                {creditReduction.toFixed(1)}% reduced
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Actions Panel */}
       {!loading && (
@@ -896,6 +995,90 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                   </div>
                 );
               })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* OB-wise Closing Credit Table */}
+      {!loading && data && data.orderBookerBreakdown && data.orderBookerBreakdown.length > 0 && (
+        <Card className="glass-card-v2 card-hover border border-violet-200/50 dark:border-violet-800/50 animate-fade-in-up">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 section-header-enhanced">
+              <Wallet className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              Order Booker Closing Credit Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto custom-scrollbar">
+              <Table className="table-modern">
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/20">
+                    <TableHead className="text-xs font-bold text-violet-700 dark:text-violet-300 min-w-[140px]">OB Name</TableHead>
+                    <TableHead className="text-xs font-bold text-violet-700 dark:text-violet-300 text-right min-w-[120px]">Opening Credit</TableHead>
+                    <TableHead className="text-xs font-bold text-emerald-700 dark:text-emerald-300 text-right min-w-[110px]">+ Credit Posted</TableHead>
+                    <TableHead className="text-xs font-bold text-red-700 dark:text-red-300 text-right min-w-[110px]">− Old Recovery</TableHead>
+                    <TableHead className="text-xs font-bold text-red-700 dark:text-red-300 text-right min-w-[110px]">− Claim Cleared</TableHead>
+                    <TableHead className="text-xs font-bold text-red-700 dark:text-red-300 text-right min-w-[110px]">− Return Stock/OB</TableHead>
+                    <TableHead className="text-xs font-bold text-violet-700 dark:text-violet-300 text-right min-w-[130px]">= Closing Credit</TableHead>
+                    <TableHead className="text-xs font-bold text-center min-w-[90px]">Health</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.orderBookerBreakdown.map((ob) => {
+                    const obOpeningCredit = ob.openingCredit ?? 0;
+                    const obClosingCredit = ob.closingCredit ?? 0;
+                    const isHealthy = obClosingCredit <= obOpeningCredit;
+                    return (
+                      <TableRow key={ob.id} className="hover:bg-violet-50/30 dark:hover:bg-violet-950/10 transition-colors">
+                        <TableCell className="font-semibold text-sm">{ob.name}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-bold">{formatPKR(obOpeningCredit)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">+{formatPKR(ob.totalCredit ?? 0)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-red-600 dark:text-red-400">−{formatPKR(ob.totalOldRecovery ?? 0)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-red-600 dark:text-red-400">−{formatPKR(ob.totalClaimCleared ?? 0)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-red-600 dark:text-red-400">−{formatPKR(ob.totalReturnStockByOB ?? 0)}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm font-bold ${obClosingCredit > 0 ? (isHealthy ? 'text-violet-700 dark:text-violet-300' : 'text-red-700 dark:text-red-300') : 'text-emerald-700 dark:text-emerald-300'}`}>
+                          {formatPKR(obClosingCredit)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-2 py-0.5 h-5 font-semibold ${
+                              isHealthy
+                                ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:bg-emerald-950/30'
+                                : 'border-red-200 text-red-700 bg-red-50 dark:border-red-800 dark:text-red-300 dark:bg-red-950/30'
+                            }`}
+                          >
+                            {isHealthy ? '✓ Good' : '⚠ Warning'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {/* Totals Row */}
+                  <TableRow className="bg-gradient-to-r from-violet-100/80 to-violet-50/50 dark:from-violet-950/40 dark:to-violet-900/20 border-t-2 border-violet-300 dark:border-violet-700 font-bold">
+                    <TableCell className="text-sm font-bold text-violet-800 dark:text-violet-200">TOTAL</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-violet-800 dark:text-violet-200">{formatPKR(totalOpeningCredit ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300">+{formatPKR(totalCredit ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-red-700 dark:text-red-300">−{formatPKR(totalOldRecovery ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-red-700 dark:text-red-300">−{formatPKR(totalClaimCleared ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-red-700 dark:text-red-300">−{formatPKR(totalReturnStockByOB ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold text-violet-800 dark:text-violet-200">{formatPKR(totalClosingCredit ?? 0)}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-2 py-0.5 h-5 font-semibold ${
+                          totalClosingCredit <= totalOpeningCredit
+                            ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:bg-emerald-950/30'
+                            : 'border-red-200 text-red-700 bg-red-50 dark:border-red-800 dark:text-red-300 dark:bg-red-950/30'
+                        }`}
+                      >
+                        {creditReduction.toFixed(1)}% reduced
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
@@ -1205,11 +1388,11 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                              PKR {entry.summaryAmount.toLocaleString()}
+                              PKR {(entry.summaryAmount ?? 0).toLocaleString()}
                             </span>
                             {entry.creditPosted > 0 && (
                               <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 font-mono">
-                                +{entry.creditPosted.toLocaleString()} cr
+                                +{(entry.creditPosted ?? 0).toLocaleString()} cr
                               </Badge>
                             )}
                           </div>
@@ -1224,7 +1407,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
                           </span>
                           <span className="text-[10px] text-muted-foreground/50">·</span>
                           <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">
-                            Cash: PKR {entry.cashReceived.toLocaleString()}
+                            Cash: PKR {(entry.cashReceived ?? 0).toLocaleString()}
                           </span>
                         </div>
                       </div>
