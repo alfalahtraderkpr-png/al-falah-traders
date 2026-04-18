@@ -4,21 +4,30 @@ import { getSession } from '@/lib/auth'
 
 /**
  * Calculate computed fields for a daily entry
+ * 
+ * FORMULA:
+ * - Credit Posted = Summary Amount - Stock Return - Cash Received
+ * - Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
+ * - Closing Balance = Opening Balance - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
  */
 function calculateFields(data: {
   openingBalance: number
   summaryAmount: number
   stockReturn: number
   cashReceived: number
+  claimCleared: number
   oldRecovery: number
+  returnStockClaimByOB: number
 }) {
   const postedSummary = data.summaryAmount - data.stockReturn
   const creditPosted = postedSummary - data.cashReceived
-  const closingBalance = data.openingBalance - data.oldRecovery + creditPosted
+  const totalRecovery = data.cashReceived + data.oldRecovery + data.claimCleared + data.returnStockClaimByOB
+  const closingBalance = data.openingBalance - data.oldRecovery - data.claimCleared - data.returnStockClaimByOB + creditPosted
 
   return {
     postedSummary,
     creditPosted,
+    totalRecovery,
     closingBalance,
   }
 }
@@ -72,7 +81,9 @@ async function cascadeBalanceUpdates(
       summaryAmount: entry.summaryAmount,
       stockReturn: entry.stockReturn,
       cashReceived: entry.cashReceived,
+      claimCleared: entry.claimCleared,
       oldRecovery: entry.oldRecovery,
+      returnStockClaimByOB: entry.returnStockClaimByOB,
     })
 
     await db.dailyEntry.update({
@@ -81,6 +92,7 @@ async function cascadeBalanceUpdates(
         openingBalance,
         postedSummary: computed.postedSummary,
         creditPosted: computed.creditPosted,
+        totalRecovery: computed.totalRecovery,
         closingBalance: computed.closingBalance,
       },
     })
@@ -147,7 +159,10 @@ export async function GET(
         postedSummary: entry.postedSummary,
         cashReceived: entry.cashReceived,
         creditPosted: entry.creditPosted,
+        claimCleared: entry.claimCleared,
         oldRecovery: entry.oldRecovery,
+        returnStockClaimByOB: entry.returnStockClaimByOB,
+        totalRecovery: entry.totalRecovery,
         closingBalance: entry.closingBalance,
         notes: entry.notes,
         createdAt: entry.createdAt,
@@ -192,7 +207,9 @@ export async function PUT(
       summaryAmount: body.summaryAmount ?? existing.summaryAmount,
       stockReturn: body.stockReturn ?? existing.stockReturn,
       cashReceived: body.cashReceived ?? existing.cashReceived,
+      claimCleared: body.claimCleared ?? existing.claimCleared,
       oldRecovery: body.oldRecovery ?? existing.oldRecovery,
+      returnStockClaimByOB: body.returnStockClaimByOB ?? existing.returnStockClaimByOB,
       notes: body.notes !== undefined ? body.notes || null : existing.notes,
     }
 
@@ -203,13 +220,15 @@ export async function PUT(
       updatedData.date
     )
 
-    // Calculate computed fields
+    // Calculate computed fields with new formula
     const computed = calculateFields({
       openingBalance,
       summaryAmount: updatedData.summaryAmount,
       stockReturn: updatedData.stockReturn,
       cashReceived: updatedData.cashReceived,
+      claimCleared: updatedData.claimCleared,
       oldRecovery: updatedData.oldRecovery,
+      returnStockClaimByOB: updatedData.returnStockClaimByOB,
     })
 
     // If the date, OB, or company changed, we need to handle the old entry's balance history
@@ -229,7 +248,6 @@ export async function PUT(
       })
 
       // Cascade updates for the OLD combination from the old date forward
-      // (to recalculate balances without this entry)
       const oldSubsequentEntries = await db.dailyEntry.findMany({
         where: {
           orderBookerId: existing.orderBookerId,
@@ -251,7 +269,9 @@ export async function PUT(
           summaryAmount: entry.summaryAmount,
           stockReturn: entry.stockReturn,
           cashReceived: entry.cashReceived,
+          claimCleared: entry.claimCleared,
           oldRecovery: entry.oldRecovery,
+          returnStockClaimByOB: entry.returnStockClaimByOB,
         })
 
         await db.dailyEntry.update({
@@ -260,6 +280,7 @@ export async function PUT(
             openingBalance: ob,
             postedSummary: c.postedSummary,
             creditPosted: c.creditPosted,
+            totalRecovery: c.totalRecovery,
             closingBalance: c.closingBalance,
           },
         })
@@ -296,7 +317,10 @@ export async function PUT(
         postedSummary: computed.postedSummary,
         cashReceived: updatedData.cashReceived,
         creditPosted: computed.creditPosted,
+        claimCleared: updatedData.claimCleared,
         oldRecovery: updatedData.oldRecovery,
+        returnStockClaimByOB: updatedData.returnStockClaimByOB,
+        totalRecovery: computed.totalRecovery,
         closingBalance: computed.closingBalance,
         notes: updatedData.notes,
       },
@@ -345,7 +369,10 @@ export async function PUT(
         postedSummary: entry.postedSummary,
         cashReceived: entry.cashReceived,
         creditPosted: entry.creditPosted,
+        claimCleared: entry.claimCleared,
         oldRecovery: entry.oldRecovery,
+        returnStockClaimByOB: entry.returnStockClaimByOB,
+        totalRecovery: entry.totalRecovery,
         closingBalance: entry.closingBalance,
         notes: entry.notes,
         createdAt: entry.createdAt,
@@ -417,7 +444,9 @@ export async function DELETE(
         summaryAmount: entry.summaryAmount,
         stockReturn: entry.stockReturn,
         cashReceived: entry.cashReceived,
+        claimCleared: entry.claimCleared,
         oldRecovery: entry.oldRecovery,
+        returnStockClaimByOB: entry.returnStockClaimByOB,
       })
 
       await db.dailyEntry.update({
@@ -426,6 +455,7 @@ export async function DELETE(
           openingBalance,
           postedSummary: computed.postedSummary,
           creditPosted: computed.creditPosted,
+          totalRecovery: computed.totalRecovery,
           closingBalance: computed.closingBalance,
         },
       })

@@ -45,7 +45,10 @@ interface EntryFormProps {
     postedSummary: number;
     cashReceived: number;
     creditPosted: number;
+    claimCleared: number;
     oldRecovery: number;
+    returnStockClaimByOB: number;
+    totalRecovery: number;
     closingBalance: number;
     notes?: string;
   } | null;
@@ -64,7 +67,9 @@ interface BulkEntryRow {
   summaryAmount: number;
   stockReturn: number;
   cashReceived: number;
+  claimCleared: number;
   oldRecovery: number;
+  returnStockClaimByOB: number;
 }
 
 export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormProps) {
@@ -82,7 +87,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   const [summaryAmount, setSummaryAmount] = useState(editEntry?.summaryAmount || 0);
   const [stockReturn, setStockReturn] = useState(editEntry?.stockReturn || 0);
   const [cashReceived, setCashReceived] = useState(editEntry?.cashReceived || 0);
+  const [claimCleared, setClaimCleared] = useState(editEntry?.claimCleared || 0);
   const [oldRecovery, setOldRecovery] = useState(editEntry?.oldRecovery || 0);
+  const [returnStockClaimByOB, setReturnStockClaimByOB] = useState(editEntry?.returnStockClaimByOB || 0);
   const [notes, setNotes] = useState(editEntry?.notes || '');
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -90,10 +97,13 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkRows, setBulkRows] = useState<BulkEntryRow[]>([]);
 
-  // Computed values (single mode)
+  // Computed values (single mode) — NEW FORMULA
+  // Credit Posted = Summary - Stock Return - Cash Received
+  // Closing Balance = Opening - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
   const postedSummary = summaryAmount - stockReturn;
   const creditPosted = postedSummary - cashReceived;
-  const closingBalance = openingBalance - oldRecovery + creditPosted;
+  const totalRecovery = cashReceived + oldRecovery + claimCleared + returnStockClaimByOB;
+  const closingBalance = openingBalance - oldRecovery - claimCleared - returnStockClaimByOB + creditPosted;
 
   // Step completion logic
   const step1Complete = !!(orderBookerId && companyId);
@@ -136,7 +146,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
         summaryAmount: 0,
         stockReturn: 0,
         cashReceived: 0,
+        claimCleared: 0,
         oldRecovery: 0,
+        returnStockClaimByOB: 0,
       })));
     }
   }, [bulkMode, companies, bulkRows.length]);
@@ -200,7 +212,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
         summaryAmount,
         stockReturn,
         cashReceived,
+        claimCleared,
         oldRecovery,
+        returnStockClaimByOB,
         notes: notes || undefined,
       };
 
@@ -228,7 +242,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
           setSummaryAmount(0);
           setStockReturn(0);
           setCashReceived(0);
+          setClaimCleared(0);
           setOldRecovery(0);
+          setReturnStockClaimByOB(0);
           setNotes('');
           setOpeningBalance(closingBalance);
         }
@@ -247,7 +263,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   };
 
   const handleBulkSave = async () => {
-    const nonZeroRows = bulkRows.filter(r => r.summaryAmount > 0 || r.stockReturn > 0 || r.cashReceived > 0 || r.oldRecovery > 0);
+    const nonZeroRows = bulkRows.filter(r => r.summaryAmount > 0 || r.stockReturn > 0 || r.cashReceived > 0 || r.claimCleared > 0 || r.oldRecovery > 0 || r.returnStockClaimByOB > 0);
 
     if (nonZeroRows.length === 0) {
       toast.error('Please enter data for at least one company');
@@ -267,7 +283,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
           summaryAmount: row.summaryAmount,
           stockReturn: row.stockReturn,
           cashReceived: row.cashReceived,
+          claimCleared: row.claimCleared,
           oldRecovery: row.oldRecovery,
+          returnStockClaimByOB: row.returnStockClaimByOB,
         };
 
         const res = await fetch('/api/entries', {
@@ -295,7 +313,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
       setTimeout(() => setSaveSuccess(false), 1200);
       toast.success(`${successCount} entr${successCount === 1 ? 'y' : 'ies'} created successfully${failCount > 0 ? `, ${failCount} failed (may already exist)` : ''}`);
       // Reset bulk rows
-      setBulkRows(prev => prev.map(r => ({ ...r, summaryAmount: 0, stockReturn: 0, cashReceived: 0, oldRecovery: 0 })));
+      setBulkRows(prev => prev.map(r => ({ ...r, summaryAmount: 0, stockReturn: 0, cashReceived: 0, claimCleared: 0, oldRecovery: 0, returnStockClaimByOB: 0 })));
       onSuccess?.();
     } else {
       toast.error('Failed to create any entries. They may already exist for this date.');
@@ -311,13 +329,15 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
     setSummaryAmount(0);
     setStockReturn(0);
     setCashReceived(0);
+    setClaimCleared(0);
     setOldRecovery(0);
+    setReturnStockClaimByOB(0);
     setNotes('');
     setOpeningBalance(0);
     setOrderBookerId('');
     setCompanyId('');
     setDate(new Date());
-    setBulkRows(prev => prev.map(r => ({ ...r, summaryAmount: 0, stockReturn: 0, cashReceived: 0, oldRecovery: 0 })));
+    setBulkRows(prev => prev.map(r => ({ ...r, summaryAmount: 0, stockReturn: 0, cashReceived: 0, claimCleared: 0, oldRecovery: 0, returnStockClaimByOB: 0 })));
   };
 
   const updateBulkRow = (companyId: string, field: keyof BulkEntryRow, value: number) => {
@@ -350,8 +370,10 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
   const bulkTotalSales = bulkRows.reduce((s, r) => s + r.summaryAmount, 0);
   const bulkTotalCash = bulkRows.reduce((s, r) => s + r.cashReceived, 0);
   const bulkTotalStockReturn = bulkRows.reduce((s, r) => s + r.stockReturn, 0);
+  const bulkTotalClaimCleared = bulkRows.reduce((s, r) => s + r.claimCleared, 0);
   const bulkTotalOldRecovery = bulkRows.reduce((s, r) => s + r.oldRecovery, 0);
-  const bulkNonZero = bulkRows.filter(r => r.summaryAmount > 0 || r.stockReturn > 0 || r.cashReceived > 0 || r.oldRecovery > 0).length;
+  const bulkTotalReturnByOB = bulkRows.reduce((s, r) => s + r.returnStockClaimByOB, 0);
+  const bulkNonZero = bulkRows.filter(r => r.summaryAmount > 0 || r.stockReturn > 0 || r.cashReceived > 0 || r.claimCleared > 0 || r.oldRecovery > 0 || r.returnStockClaimByOB > 0).length;
 
   if (loadingRefs) {
     return (
@@ -410,7 +432,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                       summaryAmount: 0,
                       stockReturn: 0,
                       cashReceived: 0,
+                      claimCleared: 0,
                       oldRecovery: 0,
+                      returnStockClaimByOB: 0,
                     })));
                   }
                 }}
@@ -516,7 +540,7 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
             <Separator />
 
             {/* Bulk summary bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
               <div className="p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/50 dark:border-emerald-800/50">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Companies</p>
                 <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{bulkNonZero} / {bulkRows.length}</p>
@@ -534,8 +558,16 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                 <p className="text-sm font-bold text-red-600 dark:text-red-400">({formatPKR(bulkTotalStockReturn)})</p>
               </div>
               <div className="p-2.5 rounded-lg bg-muted/50 border">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Claim Cleared</p>
+                <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatPKR(bulkTotalClaimCleared)}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/50 border">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Old Recovery</p>
                 <p className="text-sm font-bold text-sky-600 dark:text-sky-400">{formatPKR(bulkTotalOldRecovery)}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/50 border">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Return by OB</p>
+                <p className="text-sm font-bold text-purple-600 dark:text-purple-400">({formatPKR(bulkTotalReturnByOB)})</p>
               </div>
             </div>
 
@@ -547,15 +579,17 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                     <TableHead className="w-40">Company</TableHead>
                     <TableHead className="text-right">Summary</TableHead>
                     <TableHead className="text-right">Stock Return</TableHead>
-                    <TableHead className="text-right">Cash Received</TableHead>
-                    <TableHead className="text-right">Old Recovery</TableHead>
+                    <TableHead className="text-right">Cash</TableHead>
+                    <TableHead className="text-right">Claim Clr</TableHead>
+                    <TableHead className="text-right">Old Rec.</TableHead>
+                    <TableHead className="text-right">Ret by OB</TableHead>
                     <TableHead className="text-right">Net</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {bulkRows.map((row) => {
-                    const net = row.summaryAmount - row.stockReturn - row.cashReceived;
-                    const hasData = row.summaryAmount > 0 || row.stockReturn > 0 || row.cashReceived > 0 || row.oldRecovery > 0;
+                    const net = row.summaryAmount - row.stockReturn - row.cashReceived - row.claimCleared - row.oldRecovery - row.returnStockClaimByOB;
+                    const hasData = row.summaryAmount > 0 || row.stockReturn > 0 || row.cashReceived > 0 || row.claimCleared > 0 || row.oldRecovery > 0 || row.returnStockClaimByOB > 0;
                     return (
                       <TableRow key={row.companyId} className={hasData ? 'bg-emerald-50/30 dark:bg-emerald-950/20' : ''}>
                         <TableCell className="font-medium text-sm">
@@ -565,40 +599,22 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={row.summaryAmount || ''}
-                            onChange={(e) => updateBulkRow(row.companyId, 'summaryAmount', Number(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs w-24 ml-auto"
-                            placeholder="0"
-                          />
+                          <Input type="number" value={row.summaryAmount || ''} onChange={(e) => updateBulkRow(row.companyId, 'summaryAmount', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-24 ml-auto" placeholder="0" />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={row.stockReturn || ''}
-                            onChange={(e) => updateBulkRow(row.companyId, 'stockReturn', Number(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs w-24 ml-auto"
-                            placeholder="0"
-                          />
+                          <Input type="number" value={row.stockReturn || ''} onChange={(e) => updateBulkRow(row.companyId, 'stockReturn', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-24 ml-auto" placeholder="0" />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={row.cashReceived || ''}
-                            onChange={(e) => updateBulkRow(row.companyId, 'cashReceived', Number(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs w-24 ml-auto"
-                            placeholder="0"
-                          />
+                          <Input type="number" value={row.cashReceived || ''} onChange={(e) => updateBulkRow(row.companyId, 'cashReceived', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-24 ml-auto" placeholder="0" />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={row.oldRecovery || ''}
-                            onChange={(e) => updateBulkRow(row.companyId, 'oldRecovery', Number(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs w-24 ml-auto"
-                            placeholder="0"
-                          />
+                          <Input type="number" value={row.claimCleared || ''} onChange={(e) => updateBulkRow(row.companyId, 'claimCleared', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-20 ml-auto" placeholder="0" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" value={row.oldRecovery || ''} onChange={(e) => updateBulkRow(row.companyId, 'oldRecovery', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-24 ml-auto" placeholder="0" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" value={row.returnStockClaimByOB || ''} onChange={(e) => updateBulkRow(row.companyId, 'returnStockClaimByOB', Number(e.target.value) || 0)} className="h-8 text-right font-mono text-xs w-20 ml-auto" placeholder="0" />
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge
@@ -729,16 +745,16 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
             <div className="section-recovery pl-4">
               <div className="flex items-center gap-2 mb-3">
                 <Wallet className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <h3 className="text-sm font-semibold text-sky-800 dark:text-sky-200">Step 2: Sales & Transactions</h3>
+                <h3 className="text-sm font-semibold text-sky-800 dark:text-sky-200">Step 2: Sales & Summary</h3>
                 {step2Complete && <CheckCircle2 className="w-3.5 h-3.5 text-sky-500" />}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {numField('Opening Balance', 'Auto-fetched', openingBalance, setOpeningBalance, false)}
-                {numField('Summary Amount', 'Khulasa', summaryAmount, setSummaryAmount)}
+                {numField('Opening Balance', 'Auto-fetched from previous', openingBalance, setOpeningBalance, false)}
+                {numField('Summary Amount', 'Khulasa / Today Supply', summaryAmount, setSummaryAmount)}
                 {numField('Stock Return / Claims', 'Wapsi', stockReturn, setStockReturn)}
               </div>
 
-              {/* Calculation arrow */}
+              {/* Calculation arrow: Summary - Stock Return = Posted Summary */}
               <div className="flex items-center justify-center gap-2 py-2">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
                   <Badge variant="outline" className="font-mono text-[10px]">{formatPKR(summaryAmount)}</Badge>
@@ -753,23 +769,28 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {numField('Posted Summary', 'Computed', postedSummary, () => {}, false)}
-                {numField('Cash Received', 'Naqd Wasooli', cashReceived, setCashReceived)}
-                {numField('Credit Posted', 'Udhaar', creditPosted, () => {}, false)}
+                {numField('Cash Received', 'Naqd Wasooli / Summary Cash', cashReceived, setCashReceived)}
+                {numField('Credit Posted', 'Udhaar (Posted - Cash)', creditPosted, () => {}, false)}
               </div>
             </div>
 
             <Separator />
 
-            {/* Step 3: Balance */}
+            {/* Step 3: Balance & Recovery — NEW FIELDS */}
             <div className="section-balance pl-4">
               <div className="flex items-center gap-2 mb-3">
                 <Scale className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200">Step 3: Balance & Recovery</h3>
+                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200">Step 3: Recovery & Adjustments</h3>
                 {step3Complete && <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {numField('Old Recovery', 'Sabiqa Wasooli', oldRecovery, setOldRecovery)}
-                {numField('Closing Balance', 'Baqiya', closingBalance, () => {}, false)}
+                {numField('Old Recovery', 'Sabqa Wasooli / Previous Recovery', oldRecovery, setOldRecovery)}
+                {numField('Claim Cleared', 'Sabka Wasooli / Daawa Khata', claimCleared, setClaimCleared)}
+                {numField('Return/Claim by OB', 'OB ki taraf sy wapsi/claim', returnStockClaimByOB, setReturnStockClaimByOB)}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {numField('Total Recovery', 'Cash + Old Rec + Claim Clr + Ret by OB', totalRecovery, () => {}, false)}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Notes</Label>
                   <Textarea
@@ -783,24 +804,50 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
               </div>
             </div>
 
-            {/* Calculation Summary - Enhanced with visual grouping */}
+            {/* Calculation Summary - Enhanced with new formula */}
             <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 space-y-3">
               <h4 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
                 <Calculator className="w-4 h-4" />
                 Calculation Summary
               </h4>
-              {/* Flow diagram */}
+              
+              {/* Credit Posted Flow */}
               <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white/40 dark:bg-black/10 text-[10px] flex-wrap">
                 <span className="font-mono font-medium">{formatPKR(summaryAmount)}</span>
                 <span className="text-muted-foreground">summary</span>
                 <span className="text-muted-foreground">-</span>
                 <span className="font-mono font-medium">{formatPKR(stockReturn)}</span>
                 <span className="text-muted-foreground">returns</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-mono font-medium">{formatPKR(cashReceived)}</span>
+                <span className="text-muted-foreground">cash</span>
                 <ArrowRight className="w-3 h-3 text-emerald-500 flow-arrow" />
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{formatPKR(postedSummary)}</span>
-                <span className="text-muted-foreground">posted</span>
+                <span className="font-mono font-bold text-red-600 dark:text-red-400">Credit: {formatPKR(creditPosted)}</span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+
+              {/* Closing Balance Flow */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white/40 dark:bg-black/10 text-[10px] flex-wrap">
+                <span className="font-mono font-medium">{formatPKR(openingBalance)}</span>
+                <span className="text-muted-foreground">opening</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-mono font-medium">{formatPKR(oldRecovery)}</span>
+                <span className="text-muted-foreground">old rec</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-mono font-medium">{formatPKR(claimCleared)}</span>
+                <span className="text-muted-foreground">claim</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-mono font-medium">{formatPKR(returnStockClaimByOB)}</span>
+                <span className="text-muted-foreground">ret by OB</span>
+                <span className="text-muted-foreground">+</span>
+                <span className="font-mono font-medium text-red-600 dark:text-red-400">{formatPKR(creditPosted)}</span>
+                <span className="text-muted-foreground">credit</span>
+                <ArrowRight className="w-3 h-3 text-emerald-500 flow-arrow" />
+                <span className={`font-mono font-bold ${closingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  Closing: {formatPKR(closingBalance)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 <div className="calc-group border-l-[3px] border-emerald-500">
                   <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
                   <p className="text-sm font-mono font-bold mt-0.5">{formatPKR(postedSummary)}</p>
@@ -810,10 +857,14 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
                   <p className="text-sm font-mono font-bold mt-0.5 text-red-600 dark:text-red-400">{formatPKR(creditPosted)}</p>
                 </div>
                 <div className="calc-group border-l-[3px] border-sky-500">
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
-                  <p className="text-sm font-mono font-bold mt-0.5">{formatPKR(oldRecovery)}</p>
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Total Recovery</p>
+                  <p className="text-sm font-mono font-bold mt-0.5 text-sky-600 dark:text-sky-400">{formatPKR(totalRecovery)}</p>
                 </div>
-                <div className={`calc-group border-l-[3px] ${closingBalance > 0 ? 'border-red-500' : 'border-emerald-500'} ${closingBalance > 0 ? 'glow-red' : 'glow-emerald'}`}>
+                <div className="calc-group border-l-[3px] border-orange-500">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Total Deductions</p>
+                  <p className="text-sm font-mono font-bold mt-0.5 text-orange-600 dark:text-orange-400">{formatPKR(oldRecovery + claimCleared + returnStockClaimByOB)}</p>
+                </div>
+                <div className={`calc-group border-l-[3px] ${closingBalance > 0 ? 'border-red-500 glow-red' : 'border-emerald-500 glow-emerald'}`}>
                   <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Closing Balance</p>
                   <p className={`text-sm font-mono font-bold mt-0.5 ${closingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                     {formatPKR(closingBalance)}
@@ -822,7 +873,9 @@ export default function EntryForm({ editEntry, onSuccess, onCancel }: EntryFormP
               </div>
               <div className="flex items-start gap-1.5 text-[10px] text-emerald-700 dark:text-emerald-300">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" />
-                <span>Closing Balance = Opening Balance - Old Recovery + Credit Posted. Positive balance means outstanding credit.</span>
+                <span>
+                  Credit = Summary - Stock Return - Cash. Closing = Opening - Old Recovery - Claim Cleared - Return/Claim by OB + Credit. Positive balance means outstanding credit.
+                </span>
               </div>
             </div>
 

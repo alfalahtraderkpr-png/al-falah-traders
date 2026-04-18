@@ -31,7 +31,10 @@ interface Entry {
   postedSummary: number;
   cashReceived: number;
   creditPosted: number;
+  claimCleared: number;
   oldRecovery: number;
+  returnStockClaimByOB: number;
+  totalRecovery: number;
   closingBalance: number;
   notes?: string;
 }
@@ -155,7 +158,9 @@ export default function EntriesTable() {
         summaryAmount: duplicateEntry.summaryAmount,
         stockReturn: duplicateEntry.stockReturn,
         cashReceived: duplicateEntry.cashReceived,
+        claimCleared: duplicateEntry.claimCleared,
         oldRecovery: duplicateEntry.oldRecovery,
+        returnStockClaimByOB: duplicateEntry.returnStockClaimByOB,
         notes: duplicateEntry.notes ? `[Copy] ${duplicateEntry.notes}` : '[Copy] Duplicated entry',
       };
       const res = await fetch('/api/entries', {
@@ -177,7 +182,7 @@ export default function EntriesTable() {
   };
 
   const exportCSV = () => {
-    const headers = ['Date', 'OB Name', 'Company', 'Opening Balance', 'Summary', 'Stock Return', 'Posted Summary', 'Cash', 'Credit', 'Old Recovery', 'Closing Balance'];
+    const headers = ['Date', 'OB Name', 'Company', 'Opening Balance', 'Summary', 'Stock Return', 'Posted Summary', 'Cash', 'Credit', 'Claim Cleared', 'Old Recovery', 'Ret by OB', 'Total Recovery', 'Closing Balance'];
     const rows = sortedEntries.map((e) => [
       typeof e.date === 'string' ? e.date.split('T')[0] : e.date,
       e.orderBookerName || '',
@@ -188,7 +193,10 @@ export default function EntriesTable() {
       e.postedSummary,
       e.cashReceived,
       e.creditPosted,
+      e.claimCleared,
       e.oldRecovery,
+      e.returnStockClaimByOB,
+      e.totalRecovery,
       e.closingBalance,
     ]);
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -226,11 +234,12 @@ export default function EntriesTable() {
     }
   };
 
-  // Summary stats
+  // Summary stats — updated to use totalRecovery from entries
   const totalSales = sortedEntries.reduce((s, e) => s + e.summaryAmount, 0);
-  const totalRecovery = sortedEntries.reduce((s, e) => s + e.cashReceived, 0);
+  const totalRecovery = sortedEntries.reduce((s, e) => s + (e.totalRecovery || 0), 0);
+  const totalCashReceived = sortedEntries.reduce((s, e) => s + e.cashReceived, 0);
   const totalCredit = sortedEntries.reduce((s, e) => s + e.creditPosted, 0);
-  const recoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
+  const recoveryRate = totalSales > 0 ? (totalCashReceived / totalSales) * 100 : 0;
 
   // Bulk delete handler
   const handleBulkDelete = async () => {
@@ -291,6 +300,9 @@ export default function EntriesTable() {
     if (credit > 0) return 'row-credit-medium';
     return 'row-credit-zero';
   };
+
+  // Total columns count for colSpan (checkbox + 15 data cols + actions = 16)
+  const TABLE_COL_COUNT = 16;
 
   return (
     <div className="space-y-6 p-4 md:p-6 section-gradient-entries min-h-screen">
@@ -395,7 +407,7 @@ export default function EntriesTable() {
 
       {/* Quick Summary */}
       {!loading && sortedEntries.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up stagger-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fade-in-up stagger-2">
           <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/50">
             <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 shadow-sm">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -421,6 +433,15 @@ export default function EntriesTable() {
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Credit</p>
               <p className="text-sm font-bold text-red-700 dark:text-red-300">PKR {totalCredit.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gradient-to-br from-orange-50/80 to-orange-100/50 dark:from-orange-950/30 dark:to-orange-900/20 border border-orange-200/50 dark:border-orange-800/50">
+            <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/50 shadow-sm">
+              <TrendingUp className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Cash</p>
+              <p className="text-sm font-bold text-orange-700 dark:text-orange-300">PKR {totalCashReceived.toLocaleString()}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200/50 dark:border-amber-800/50">
@@ -453,7 +474,7 @@ export default function EntriesTable() {
               {sortDir === 'asc' ? 'Oldest first' : 'Newest first'}
             </Button>
           </div>
-          <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+          <div className="max-h-[500px] overflow-auto custom-scrollbar">
             {loading ? (
               <div className="p-6 space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -467,101 +488,113 @@ export default function EntriesTable() {
                 <p className="text-sm mt-1">Try adjusting your filters or add a new entry</p>
               </div>
             ) : (
-              <Table className="table-modern">
+              <Table className="table-modern text-xs">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky top-0 z-10 w-10">
+                    <TableHead className="sticky top-0 z-10 w-8 px-1">
                       <button onClick={toggleSelectAll} className="flex items-center" aria-label={selectedIds.size === paginatedEntries.length ? 'Deselect all' : 'Select all'}>
                         {selectedIds.size === paginatedEntries.length && paginatedEntries.length > 0 ? (
-                          <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         ) : (
-                          <Square className="w-4 h-4 text-muted-foreground" />
+                          <Square className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
                       </button>
                     </TableHead>
-                    <TableHead className="sticky top-0 z-10">Date</TableHead>
-                    <TableHead className="sticky top-0 z-10">OB Name</TableHead>
-                    <TableHead className="sticky top-0 z-10">Company</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Opening</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Summary</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Stk Return</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Posted</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Cash</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Credit</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Old Rec.</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10">Closing</TableHead>
-                    <TableHead className="sticky top-0 z-10 no-print">Actions</TableHead>
+                    <TableHead className="sticky top-0 z-10 px-2">Date</TableHead>
+                    <TableHead className="sticky top-0 z-10 px-2">OB Name</TableHead>
+                    <TableHead className="sticky top-0 z-10 px-2">Company</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Opening</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Summary</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Stk Ret</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Posted</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Cash</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Credit</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Claim Clr</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Old Rec.</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Ret by OB</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Total Rec.</TableHead>
+                    <TableHead className="text-right sticky top-0 z-10 px-1">Closing</TableHead>
+                    <TableHead className="sticky top-0 z-10 px-1 no-print">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedEntries.map((entry) => (
                     <React.Fragment key={entry.id}>
                     <TableRow className={`transition-all duration-200 ${getCreditRowClass(entry.creditPosted)} ${expandedRow === entry.id ? 'row-expanded' : ''} ${selectedIds.has(entry.id) ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''} cursor-pointer row-highlight`} onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}>
-                      <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="w-8 px-1" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => toggleSelect(entry.id)} className="flex items-center" aria-label={selectedIds.has(entry.id) ? 'Deselect' : 'Select'}>
                           {selectedIds.has(entry.id) ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : (
-                            <Square className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                            <Square className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
                           )}
                         </button>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm font-medium">
+                      <TableCell className="whitespace-nowrap text-xs font-medium px-2">
                         {formatDate(entry.date)}
                       </TableCell>
-                      <TableCell className="font-medium text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-sm">
+                      <TableCell className="font-medium text-xs px-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 shadow-sm">
                             {entry.orderBookerName?.charAt(0) || '?'}
                           </div>
-                          {entry.orderBookerName}
+                          <span className="truncate max-w-[80px]">{entry.orderBookerName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {entry.companyName}
+                      <TableCell className="text-xs text-muted-foreground px-2">
+                        <span className="truncate max-w-[70px] block">{entry.companyName}</span>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      <TableCell className="text-right font-mono text-[11px] px-1">
                         {entry.openingBalance.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-medium">
+                      <TableCell className="text-right font-mono text-[11px] font-medium px-1">
                         {entry.summaryAmount.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-red-600 dark:text-red-400">
+                      <TableCell className="text-right font-mono text-[11px] text-red-600 dark:text-red-400 px-1">
                         ({entry.stockReturn.toLocaleString()})
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-medium">
+                      <TableCell className="text-right font-mono text-[11px] font-medium px-1">
                         {entry.postedSummary.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <TableCell className="text-right font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-medium px-1">
                         {entry.cashReceived.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      <TableCell className="text-right font-mono text-[11px] px-1">
                         {entry.creditPosted.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-sky-600 dark:text-sky-400">
+                      <TableCell className="text-right font-mono text-[11px] text-orange-600 dark:text-orange-400 px-1">
+                        {entry.claimCleared.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-[11px] text-sky-600 dark:text-sky-400 px-1">
                         {entry.oldRecovery.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      <TableCell className="text-right font-mono text-[11px] text-purple-600 dark:text-purple-400 px-1">
+                        {entry.returnStockClaimByOB.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-[11px] text-sky-700 dark:text-sky-300 font-semibold px-1">
+                        {entry.totalRecovery.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-[11px] px-1">
                         <Badge
                           variant={entry.closingBalance > 0 ? 'destructive' : 'default'}
-                          className={`text-[10px] px-1.5 py-0 h-4 font-mono badge-animated badge-pulse ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
+                          className={`text-[10px] px-1 py-0 h-4 font-mono badge-animated badge-pulse ${entry.closingBalance <= 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-0' : ''}`}
                         >
                           <span className={`status-dot ${entry.closingBalance > 0 ? 'risk' : 'active'}`}>
                             {entry.closingBalance.toLocaleString()}
                           </span>
                         </Badge>
                       </TableCell>
-                      <TableCell className="no-print" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" onClick={() => handleEdit(entry)}>
+                      <TableCell className="no-print px-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" onClick={() => handleEdit(entry)}>
                             <Edit className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 btn-duplicate" onClick={() => handleDuplicate(entry)} title="Duplicate entry">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 btn-duplicate" onClick={() => handleDuplicate(entry)} title="Duplicate entry">
                             <Copy className="w-3 h-3" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30">
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30">
                                 <Trash2 className="w-3 h-3" />
                               </Button>
                             </AlertDialogTrigger>
@@ -586,10 +619,10 @@ export default function EntriesTable() {
                     {/* Expandable Row Details */}
                     {expandedRow === entry.id && (
                       <TableRow>
-                        <TableCell colSpan={13} className="p-0 border-0">
+                        <TableCell colSpan={TABLE_COL_COUNT} className="p-0 border-0">
                           <div className="expandable-row-wrapper expanded">
                           <div className="px-6 py-4 bg-gradient-to-r from-emerald-50/50 via-transparent to-sky-50/50 dark:from-emerald-950/20 dark:via-transparent dark:to-sky-950/20 border-b border-emerald-200/30 dark:border-emerald-800/30">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                               <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Posted Summary</p>
                                 <p className="text-sm font-mono font-bold">{entry.postedSummary.toLocaleString()}</p>
@@ -611,10 +644,26 @@ export default function EntriesTable() {
                                 <p className="text-sm font-mono font-bold text-sky-600 dark:text-sky-400">{entry.oldRecovery.toLocaleString()}</p>
                               </div>
                               <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Claim Cleared</p>
+                                <p className="text-sm font-mono font-bold text-orange-600 dark:text-orange-400">{entry.claimCleared.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Return/Claim by OB</p>
+                                <p className="text-sm font-mono font-bold text-purple-600 dark:text-purple-400">{entry.returnStockClaimByOB.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Recovery</p>
+                                <p className="text-sm font-mono font-bold text-sky-700 dark:text-sky-300">{entry.totalRecovery.toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Recovery Rate</p>
                                 <p className={`text-sm font-mono font-bold ${entry.postedSummary > 0 ? ((entry.cashReceived / entry.postedSummary) * 100) >= 70 ? 'text-emerald-600 dark:text-emerald-400' : ((entry.cashReceived / entry.postedSummary) * 100) >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                                   {entry.postedSummary > 0 ? ((entry.cashReceived / entry.postedSummary) * 100).toFixed(1) : '0.0'}%
                                 </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Closing Balance</p>
+                                <p className={`text-sm font-mono font-bold ${entry.closingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{entry.closingBalance.toLocaleString()}</p>
                               </div>
                             </div>
                             {entry.notes && (
@@ -775,7 +824,10 @@ export default function EntriesTable() {
                 postedSummary: editEntry.postedSummary,
                 cashReceived: editEntry.cashReceived,
                 creditPosted: editEntry.creditPosted,
+                claimCleared: editEntry.claimCleared,
                 oldRecovery: editEntry.oldRecovery,
+                returnStockClaimByOB: editEntry.returnStockClaimByOB,
+                totalRecovery: editEntry.totalRecovery,
                 closingBalance: editEntry.closingBalance,
                 notes: editEntry.notes,
               }}
@@ -826,8 +878,20 @@ export default function EntriesTable() {
                   <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{duplicateEntry.cashReceived.toLocaleString()}</p>
                 </div>
                 <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Claim Cleared</p>
+                  <p className="font-mono font-medium text-orange-600 dark:text-orange-400">{duplicateEntry.claimCleared.toLocaleString()}</p>
+                </div>
+                <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Old Recovery</p>
                   <p className="font-mono font-medium text-sky-600 dark:text-sky-400">{duplicateEntry.oldRecovery.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ret by OB</p>
+                  <p className="font-mono font-medium text-purple-600 dark:text-purple-400">{duplicateEntry.returnStockClaimByOB.toLocaleString()}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Recovery</p>
+                  <p className="font-mono font-medium text-sky-700 dark:text-sky-300">PKR {duplicateEntry.totalRecovery.toLocaleString()}</p>
                 </div>
               </div>
               {duplicateEntry.notes && (

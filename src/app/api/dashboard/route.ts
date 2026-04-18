@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 
+/**
+ * Dashboard API
+ *
+ * Aggregated totals include:
+ * - totalSales: sum of summaryAmount
+ * - totalRecovery: sum of (cashReceived + oldRecovery + claimCleared + returnStockClaimByOB) per entry
+ * - totalCredit: sum of creditPosted
+ * - totalStockReturn: sum of stockReturn
+ * - totalOldRecovery: sum of oldRecovery
+ * - totalClaimCleared: sum of claimCleared
+ * - totalReturnStockByOB: sum of returnStockClaimByOB
+ *
+ * Formula (per entry):
+ * - Credit Posted = Summary Amount - Stock Return - Cash Received
+ * - Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
+ * - Closing Balance = Opening Balance - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
@@ -34,7 +51,10 @@ export async function GET(request: NextRequest) {
 
     // Aggregated totals
     const totalSales = entries.reduce((sum, e) => sum + e.summaryAmount, 0)
-    const totalRecovery = entries.reduce((sum, e) => sum + e.cashReceived, 0)
+    const totalCashReceived = entries.reduce(
+      (sum, e) => sum + e.cashReceived,
+      0
+    )
     const totalCredit = entries.reduce((sum, e) => sum + e.creditPosted, 0)
     const totalStockReturn = entries.reduce(
       (sum, e) => sum + e.stockReturn,
@@ -44,6 +64,17 @@ export async function GET(request: NextRequest) {
       (sum, e) => sum + e.oldRecovery,
       0
     )
+    const totalClaimCleared = entries.reduce(
+      (sum, e) => sum + e.claimCleared,
+      0
+    )
+    const totalReturnStockByOB = entries.reduce(
+      (sum, e) => sum + e.returnStockClaimByOB,
+      0
+    )
+    // Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
+    const totalRecovery =
+      totalCashReceived + totalOldRecovery + totalClaimCleared + totalReturnStockByOB
 
     // Per Order Booker breakdown
     const obMap = new Map<
@@ -53,9 +84,12 @@ export async function GET(request: NextRequest) {
         name: string
         totalSales: number
         totalRecovery: number
+        totalCashReceived: number
         totalCredit: number
         totalStockReturn: number
         totalOldRecovery: number
+        totalClaimCleared: number
+        totalReturnStockByOB: number
         entryCount: number
       }
     >()
@@ -68,18 +102,28 @@ export async function GET(request: NextRequest) {
           name: entry.orderBooker.name,
           totalSales: 0,
           totalRecovery: 0,
+          totalCashReceived: 0,
           totalCredit: 0,
           totalStockReturn: 0,
           totalOldRecovery: 0,
+          totalClaimCleared: 0,
+          totalReturnStockByOB: 0,
           entryCount: 0,
         })
       }
       const obData = obMap.get(obId)!
       obData.totalSales += entry.summaryAmount
-      obData.totalRecovery += entry.cashReceived
+      obData.totalCashReceived += entry.cashReceived
       obData.totalCredit += entry.creditPosted
       obData.totalStockReturn += entry.stockReturn
       obData.totalOldRecovery += entry.oldRecovery
+      obData.totalClaimCleared += entry.claimCleared
+      obData.totalReturnStockByOB += entry.returnStockClaimByOB
+      obData.totalRecovery =
+        obData.totalCashReceived +
+        obData.totalOldRecovery +
+        obData.totalClaimCleared +
+        obData.totalReturnStockByOB
       obData.entryCount++
     }
 
@@ -91,8 +135,12 @@ export async function GET(request: NextRequest) {
         name: string
         totalSales: number
         totalRecovery: number
+        totalCashReceived: number
         totalCredit: number
         totalStockReturn: number
+        totalOldRecovery: number
+        totalClaimCleared: number
+        totalReturnStockByOB: number
         entryCount: number
       }
     >()
@@ -105,16 +153,28 @@ export async function GET(request: NextRequest) {
           name: entry.company.name,
           totalSales: 0,
           totalRecovery: 0,
+          totalCashReceived: 0,
           totalCredit: 0,
           totalStockReturn: 0,
+          totalOldRecovery: 0,
+          totalClaimCleared: 0,
+          totalReturnStockByOB: 0,
           entryCount: 0,
         })
       }
       const cData = companyMap.get(cId)!
       cData.totalSales += entry.summaryAmount
-      cData.totalRecovery += entry.cashReceived
+      cData.totalCashReceived += entry.cashReceived
       cData.totalCredit += entry.creditPosted
       cData.totalStockReturn += entry.stockReturn
+      cData.totalOldRecovery += entry.oldRecovery
+      cData.totalClaimCleared += entry.claimCleared
+      cData.totalReturnStockByOB += entry.returnStockClaimByOB
+      cData.totalRecovery =
+        cData.totalCashReceived +
+        cData.totalOldRecovery +
+        cData.totalClaimCleared +
+        cData.totalReturnStockByOB
       cData.entryCount++
     }
 
@@ -125,8 +185,12 @@ export async function GET(request: NextRequest) {
         date: string
         totalSales: number
         totalRecovery: number
+        totalCashReceived: number
         totalCredit: number
         totalStockReturn: number
+        totalOldRecovery: number
+        totalClaimCleared: number
+        totalReturnStockByOB: number
         entryCount: number
       }
     >()
@@ -138,16 +202,28 @@ export async function GET(request: NextRequest) {
           date: dateKey,
           totalSales: 0,
           totalRecovery: 0,
+          totalCashReceived: 0,
           totalCredit: 0,
           totalStockReturn: 0,
+          totalOldRecovery: 0,
+          totalClaimCleared: 0,
+          totalReturnStockByOB: 0,
           entryCount: 0,
         })
       }
       const dData = dailyMap.get(dateKey)!
       dData.totalSales += entry.summaryAmount
-      dData.totalRecovery += entry.cashReceived
+      dData.totalCashReceived += entry.cashReceived
       dData.totalCredit += entry.creditPosted
       dData.totalStockReturn += entry.stockReturn
+      dData.totalOldRecovery += entry.oldRecovery
+      dData.totalClaimCleared += entry.claimCleared
+      dData.totalReturnStockByOB += entry.returnStockClaimByOB
+      dData.totalRecovery =
+        dData.totalCashReceived +
+        dData.totalOldRecovery +
+        dData.totalClaimCleared +
+        dData.totalReturnStockByOB
       dData.entryCount++
     }
 
@@ -160,9 +236,12 @@ export async function GET(request: NextRequest) {
       summary: {
         totalSales,
         totalRecovery,
+        totalCashReceived,
         totalCredit,
         totalStockReturn,
         totalOldRecovery,
+        totalClaimCleared,
+        totalReturnStockByOB,
         entryCount: entries.length,
       },
       orderBookerBreakdown: Array.from(obMap.values()).sort((a, b) =>

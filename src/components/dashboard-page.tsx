@@ -30,9 +30,12 @@ interface DashboardAPIResponse {
   summary: {
     totalSales: number;
     totalRecovery: number;
+    totalCashReceived: number;
     totalCredit: number;
     totalStockReturn: number;
     totalOldRecovery: number;
+    totalClaimCleared: number;
+    totalReturnStockByOB: number;
     entryCount: number;
   };
   orderBookerBreakdown: {
@@ -40,9 +43,12 @@ interface DashboardAPIResponse {
     name: string;
     totalSales: number;
     totalRecovery: number;
+    totalCashReceived: number;
     totalCredit: number;
     totalStockReturn: number;
     totalOldRecovery: number;
+    totalClaimCleared: number;
+    totalReturnStockByOB: number;
     entryCount: number;
   }[];
   companyBreakdown: {
@@ -50,16 +56,24 @@ interface DashboardAPIResponse {
     name: string;
     totalSales: number;
     totalRecovery: number;
+    totalCashReceived: number;
     totalCredit: number;
     totalStockReturn: number;
+    totalOldRecovery: number;
+    totalClaimCleared: number;
+    totalReturnStockByOB: number;
     entryCount: number;
   }[];
   dailyTrend: {
     date: string;
     totalSales: number;
     totalRecovery: number;
+    totalCashReceived: number;
     totalCredit: number;
     totalStockReturn: number;
+    totalOldRecovery: number;
+    totalClaimCleared: number;
+    totalReturnStockByOB: number;
     entryCount: number;
   }[];
 }
@@ -265,9 +279,12 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
 
   const totalSales = data?.summary?.totalSales || 0;
   const totalRecovery = data?.summary?.totalRecovery || 0;
+  const totalCashReceived = data?.summary?.totalCashReceived || 0;
   const totalCredit = data?.summary?.totalCredit || 0;
   const totalStockReturn = data?.summary?.totalStockReturn || 0;
   const totalOldRecovery = data?.summary?.totalOldRecovery || 0;
+  const totalClaimCleared = data?.summary?.totalClaimCleared || 0;
+  const totalReturnStockByOB = data?.summary?.totalReturnStockByOB || 0;
   const netRecoveryRate = totalSales > 0 ? (totalRecovery / totalSales) * 100 : 0;
   const creditToSalesRatio = totalSales > 0 ? (totalCredit / totalSales) * 100 : 0;
 

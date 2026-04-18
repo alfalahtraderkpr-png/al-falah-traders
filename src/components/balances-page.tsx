@@ -152,15 +152,20 @@ export default function BalancesPage() {
 
     setSettleSaving(true);
     try {
-      // Create a settlement entry - a daily entry with cash received = settle amount
+      // Create a settlement entry using oldRecovery only (not cashReceived) to avoid double-counting.
+      // Formula: Closing Balance = Opening Balance - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
+      // With only oldRecovery set: Closing = Opening - amount + 0 = Opening - amount (correct reduction)
+      // If we also set cashReceived, Credit Posted would become -amount, causing double deduction.
       const payload = {
         date: format(new Date(), 'yyyy-MM-dd'),
         orderBookerId: settleOB.orderBookerId,
         companyId: settleCompany.companyId,
         summaryAmount: 0,
         stockReturn: 0,
-        cashReceived: amount,
+        cashReceived: 0,
+        claimCleared: 0,
         oldRecovery: amount,
+        returnStockClaimByOB: 0,
         notes: settleNotes || `Payment settlement - ${formatPKR(amount)}`,
       };
 
@@ -529,7 +534,7 @@ export default function BalancesPage() {
               Record Payment Settlement
             </DialogTitle>
             <DialogDescription>
-              Record a payment to reduce the outstanding balance. This will create a new entry with cash received.
+              Record an old balance recovery to reduce the outstanding balance. This creates a settlement entry with the recovery amount.
             </DialogDescription>
           </DialogHeader>
 

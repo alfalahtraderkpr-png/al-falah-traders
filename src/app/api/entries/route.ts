@@ -4,21 +4,34 @@ import { getSession } from '@/lib/auth'
 
 /**
  * Calculate computed fields for a daily entry
+ * 
+ * FORMULA (as per business logic):
+ * - Credit Posted = Summary Amount - Stock Return - Cash Received
+ * - Total Recovery = Cash Received + Old Recovery + Claim Cleared + Return Stock/Claim by OB
+ * - Closing Balance = Opening Balance - Old Recovery - Claim Cleared - Return Stock/Claim by OB + Credit Posted
+ * 
+ * Example: Danish Opening=10000, Recovery=2000 → 8000, 
+ *          Summary=10000, Cash=5000, Credit=5000 → 8000+5000=13000,
+ *          Sabka Wasooli(ClaimCleared)=1000 → 13000-1000=12000 closing
  */
 function calculateFields(data: {
   openingBalance: number
   summaryAmount: number
   stockReturn: number
   cashReceived: number
+  claimCleared: number
   oldRecovery: number
+  returnStockClaimByOB: number
 }) {
   const postedSummary = data.summaryAmount - data.stockReturn
   const creditPosted = postedSummary - data.cashReceived
-  const closingBalance = data.openingBalance - data.oldRecovery + creditPosted
+  const totalRecovery = data.cashReceived + data.oldRecovery + data.claimCleared + data.returnStockClaimByOB
+  const closingBalance = data.openingBalance - data.oldRecovery - data.claimCleared - data.returnStockClaimByOB + creditPosted
 
   return {
     postedSummary,
     creditPosted,
+    totalRecovery,
     closingBalance,
   }
 }
@@ -79,7 +92,9 @@ async function cascadeBalanceUpdates(
       summaryAmount: entry.summaryAmount,
       stockReturn: entry.stockReturn,
       cashReceived: entry.cashReceived,
+      claimCleared: entry.claimCleared,
       oldRecovery: entry.oldRecovery,
+      returnStockClaimByOB: entry.returnStockClaimByOB,
     })
 
     // Update the entry with new computed values
@@ -89,6 +104,7 @@ async function cascadeBalanceUpdates(
         openingBalance,
         postedSummary: computed.postedSummary,
         creditPosted: computed.creditPosted,
+        totalRecovery: computed.totalRecovery,
         closingBalance: computed.closingBalance,
       },
     })
@@ -172,7 +188,10 @@ export async function GET(request: NextRequest) {
         postedSummary: entry.postedSummary,
         cashReceived: entry.cashReceived,
         creditPosted: entry.creditPosted,
+        claimCleared: entry.claimCleared,
         oldRecovery: entry.oldRecovery,
+        returnStockClaimByOB: entry.returnStockClaimByOB,
+        totalRecovery: entry.totalRecovery,
         closingBalance: entry.closingBalance,
         notes: entry.notes,
         createdAt: entry.createdAt,
@@ -203,7 +222,9 @@ export async function POST(request: NextRequest) {
       summaryAmount = 0,
       stockReturn = 0,
       cashReceived = 0,
+      claimCleared = 0,
       oldRecovery = 0,
+      returnStockClaimByOB = 0,
       notes,
     } = body
 
@@ -244,13 +265,15 @@ export async function POST(request: NextRequest) {
       entryDate
     )
 
-    // Calculate computed fields
+    // Calculate computed fields with new formula
     const computed = calculateFields({
       openingBalance,
       summaryAmount,
       stockReturn,
       cashReceived,
+      claimCleared,
       oldRecovery,
+      returnStockClaimByOB,
     })
 
     // Create the entry
@@ -265,7 +288,10 @@ export async function POST(request: NextRequest) {
         postedSummary: computed.postedSummary,
         cashReceived,
         creditPosted: computed.creditPosted,
+        claimCleared,
         oldRecovery,
+        returnStockClaimByOB,
+        totalRecovery: computed.totalRecovery,
         closingBalance: computed.closingBalance,
         notes: notes || null,
       },
@@ -313,7 +339,10 @@ export async function POST(request: NextRequest) {
           postedSummary: entry.postedSummary,
           cashReceived: entry.cashReceived,
           creditPosted: entry.creditPosted,
+          claimCleared: entry.claimCleared,
           oldRecovery: entry.oldRecovery,
+          returnStockClaimByOB: entry.returnStockClaimByOB,
+          totalRecovery: entry.totalRecovery,
           closingBalance: entry.closingBalance,
           notes: entry.notes,
           createdAt: entry.createdAt,

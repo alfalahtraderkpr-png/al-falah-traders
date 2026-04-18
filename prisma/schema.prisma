@@ -38,21 +38,24 @@ model Company {
 }
 
 model DailyEntry {
-  id              String   @id @default(cuid())
-  date            DateTime
-  orderBookerId   String
-  companyId       String
-  openingBalance  Float    @default(0)
-  summaryAmount   Float    @default(0)
-  stockReturn     Float    @default(0)
-  postedSummary   Float    @default(0)
-  cashReceived    Float    @default(0)
-  creditPosted    Float    @default(0)
-  oldRecovery     Float    @default(0)
-  closingBalance  Float    @default(0)
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  date                  DateTime
+  orderBookerId         String
+  companyId             String
+  openingBalance        Float    @default(0)
+  summaryAmount         Float    @default(0)
+  stockReturn           Float    @default(0)
+  postedSummary         Float    @default(0)
+  cashReceived          Float    @default(0)
+  creditPosted          Float    @default(0)
+  claimCleared          Float    @default(0)
+  oldRecovery           Float    @default(0)
+  returnStockClaimByOB  Float    @default(0)
+  totalRecovery         Float    @default(0)
+  closingBalance        Float    @default(0)
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   orderBooker OrderBooker @relation(fields: [orderBookerId], references: [id])
   company     Company     @relation(fields: [companyId], references: [id])
