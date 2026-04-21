@@ -7,8 +7,8 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  const tursoUrl = process.env.TURSO_DATABASE_URL
-  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN
+  const tursoUrl = process.env.ALFALAH_DB_URL
+  const tursoAuthToken = process.env.ALFALAH_DB_TOKEN
 
   // Use Turso/libSQL adapter for cloud database (production/Vercel)
   if (
@@ -18,26 +18,24 @@ function createPrismaClient() {
     tursoAuthToken !== 'undefined' &&
     tursoUrl.startsWith('libsql://')
   ) {
-    try {
-      const libsql = createClient({
-        url: tursoUrl,
-        authToken: tursoAuthToken,
-      })
+    const adapter = new PrismaLibSql({
+      url: tursoUrl,
+      authToken: tursoAuthToken,
+    })
 
-      const adapter = new PrismaLibSql(libsql)
-
-      return new PrismaClient({
-        adapter,
-        log: ['error', 'warn'],
-      })
-    } catch (error) {
-      console.error('Failed to connect to Turso, falling back to SQLite:', error)
-    }
+    return new PrismaClient({
+      adapter,
+    })
   }
 
   // Fallback to local SQLite for development
+  const localClient = createClient({
+    url: process.env.DATABASE_URL || 'file:./db/custom.db',
+  })
+  const adapter = new PrismaLibSql(localClient)
+
   return new PrismaClient({
-    log: ['error', 'warn'],
+    adapter,
   })
 }
 
