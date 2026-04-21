@@ -132,6 +132,46 @@
 
 ---
 
+#### Session 9: Turso Cloud Database Setup (Task ID: 1)
+
+**Turso/libSQL Integration:**
+- Updated `src/lib/db.ts` to conditionally use `@prisma/adapter-libsql` for Turso cloud database
+- When `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` env vars are set, uses Turso adapter
+- Falls back to local SQLite when env vars are not set (for local development)
+- Fixed export name: `PrismaLibSql` (not `PrismaLibSQL` - case sensitive)
+
+**Schema Push to Turso:**
+- Used Turso HTTP API (`/v2/pipeline`) to create all 5 tables on Turso cloud
+- Created: Admin, OrderBooker, Company, DailyEntry, BalanceHistory
+- Created all unique indexes: Admin_username, OrderBooker_name, Company_name, DailyEntry_date_orderBookerId_companyId, BalanceHistory_date_orderBookerId_companyId
+- Seeded admin credentials: Username "AL-FALAH TRADER", Password "@AFE@123654" (bcrypt hashed)
+- Seeded 6 Order Bookers: Danish, Qadeer, Shahid, Ali, Murtaza, Anas
+- Seeded 8 Companies: CPL, Tank, Tahura, Imported, Shan Masala, National Foods, Mitchells, Kolson
+
+**Environment Configuration:**
+- Added TURSO_DATABASE_URL and TURSO_AUTH_TOKEN to `.env`
+- Created `.env.example` with documentation for required env vars
+- Updated `.gitignore` to allow `.env.example` but keep `.env` private
+
+**GitHub Push:**
+- Pushed 2 commits to `alfalahtraderkpr-png/al-falah-traders`:
+  1. `feat: add Turso/libSQL cloud database support for Vercel deployment`
+  2. `fix: correct PrismaLibSql export name (case-sensitive)`
+
+**Turso Database Details:**
+- URL: `libsql://afecashflow-alfalahtraders.aws-ap-south-1.turso.io`
+- Region: AWS ap-south-1 (Mumbai)
+- All tables and indexes created and verified
+
+**For Vercel Deployment, user needs to set these environment variables:**
+- `TURSO_DATABASE_URL` = `libsql://afecashflow-alfalahtraders.aws-ap-south-1.turso.io`
+- `TURSO_AUTH_TOKEN` = (their Turso auth token)
+- `DATABASE_URL` = `file:./dev.db` (required by Prisma CLI, but overridden by adapter at runtime)
+
+**Lint check:** Passes cleanly
+
+---
+
 ### Detailed History
 
 #### Session 1-3: Initial Build
