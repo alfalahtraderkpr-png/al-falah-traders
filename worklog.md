@@ -172,6 +172,38 @@
 
 ---
 
+#### Session 9b: Vercel Deployment Fix + Prisma v7 Upgrade (Task ID: 2)
+
+**Problem:**
+- Vercel deployment was failing with `URL_INVALID: The URL 'undefined'` error
+- Root cause 1: Vercel's Turso integration auto-injects `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` pointing to its own database, overriding our values
+- Root cause 2: Prisma v6 `@prisma/client@6.x` was incompatible with `@prisma/adapter-libsql@7.x`
+- Root cause 3: Prisma v7 requires config object (`{url, authToken}`) instead of `createClient()` result for `PrismaLibSql`
+
+**Fixes Applied:**
+1. **Upgraded Prisma to v7.7.0** - `@prisma/client` and `prisma` both upgraded to match `@prisma/adapter-libsql@7.7.0`
+2. **Updated `PrismaLibSql` API** - Changed from `new PrismaLibSql(createClient({...}))` to `new PrismaLibSql({url, authToken})` (v7 API)
+3. **Updated Prisma schema** - Removed `url = env("DATABASE_URL")` from datasource (v7 breaking change)
+4. **Created `prisma/prisma.config.ts`** - For migration URL configuration (v7 requirement)
+5. **Used custom env vars** - `ALFALAH_DB_URL` and `ALFALAH_DB_TOKEN` instead of `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` to avoid Vercel integration conflicts
+6. **Added `postinstall` script** - `prisma generate` runs during build to generate client
+7. **Added `prisma generate` to build script** - Ensures client is generated before Next.js build
+8. **Set up Vercel env vars** via API: ALFALAH_DB_URL, ALFALAH_DB_TOKEN, DATABASE_URL
+
+**Vercel Deployment Verified:**
+- ✅ Build succeeds
+- ✅ Login works: `AL-FALAH TRADER` / `@AFE@123654`
+- ✅ Dashboard API returns data
+- ✅ Turso cloud database connected
+
+**Live URL:** https://al-falah-traders.vercel.app
+
+**GitHub:** Pushed commit `99d6c22` to `alfalahtraderkpr-png/al-falah-traders`
+
+**Lint check:** Passes cleanly
+
+---
+
 ### Detailed History
 
 #### Session 1-3: Initial Build
