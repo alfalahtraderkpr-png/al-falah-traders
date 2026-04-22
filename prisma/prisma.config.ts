@@ -9,4 +9,9 @@ export default defineConfig({
       return process.env.DATABASE_URL ?? 'file:./db/custom.db'
     },
   },
+  db: {
+    async url() {
+      return process.env.DATABASE_URL ?? 'file:./db/custom.db'
+    },
+  },
 })

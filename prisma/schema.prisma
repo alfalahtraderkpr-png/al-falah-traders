@@ -15,25 +15,29 @@ model Admin {
 }
 
 model OrderBooker {
-  id        String        @id @default(cuid())
-  name      String        @unique
-  phone     String?
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  entries   DailyEntry[]
-  balances  BalanceHistory[]
+  id              String           @id @default(cuid())
+  name            String           @unique
+  phone           String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  entries         DailyEntry[]
+  balances        BalanceHistory[]
+  openingCredits  OpeningCredit[]
+  salesTargets    SalesTarget[]
 }
 
 model Company {
-  id        String        @id @default(cuid())
-  name      String        @unique
-  category  String?
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  entries   DailyEntry[]
-  balances  BalanceHistory[]
+  id              String           @id @default(cuid())
+  name            String           @unique
+  category        String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  entries         DailyEntry[]
+  balances        BalanceHistory[]
+  openingCredits  OpeningCredit[]
+  salesTargets    SalesTarget[]
 }
 
 model DailyEntry {
@@ -74,4 +78,39 @@ model BalanceHistory {
   company     Company     @relation(fields: [companyId], references: [id])
 
   @@unique([date, orderBookerId, companyId])
+}
+
+model OpeningCredit {
+  id              String   @id @default(cuid())
+  orderBookerId   String
+  companyId       String
+  amount          Float    @default(0)
+  date            DateTime
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orderBooker OrderBooker @relation(fields: [orderBookerId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  @@unique([orderBookerId, companyId, date])
+}
+
+model SalesTarget {
+  id              String   @id @default(cuid())
+  orderBookerId   String
+  companyId       String
+  month           Int
+  year            Int
+  targetCtns      Float    @default(0)
+  targetTonnage   Float    @default(0)
+  targetValue     Float    @default(0)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orderBooker OrderBooker @relation(fields: [orderBookerId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  @@unique([orderBookerId, companyId, month, year])
 }

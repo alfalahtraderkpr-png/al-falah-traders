@@ -25,6 +25,7 @@ import { format, startOfMonth, endOfMonth, subMonths, formatDistanceToNow } from
 import { DateRange } from 'react-day-picker';
 import EntryForm from '@/components/entry-form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import TargetAchievementCard from '@/components/target-achievement-card';
 
 interface DashboardAPIResponse {
   summary: {
@@ -737,6 +738,9 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
           </CardContent>
         </Card>
       )}
+
+      {/* Target Achievement Card */}
+      {!loading && <TargetAchievementCard />}
 
       {/* Quick Actions Panel */}
       {!loading && (

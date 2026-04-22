@@ -11,9 +11,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson, Search, Filter, BarChart3, Calendar, TrendingUp, Wallet, CreditCard } from 'lucide-react';
+import { UserPlus, Building2, Plus, Edit, Trash2, Phone, Tag, Users, Shield, Database, Activity, CheckCircle2, XCircle, Lock, Eye, EyeOff, Download, Upload, AlertTriangle, HardDrive, Loader2, FileJson, Search, Filter, BarChart3, Calendar, TrendingUp, Wallet, CreditCard, Target, ChevronDown, ChevronUp, Save, RefreshCw, StickyNote, BarChart2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import OpeningCreditsTab from './opening-credits-tab';
+import SalesTargetsTab from './sales-targets-tab';
 
 interface OrderBooker {
   id: string;
@@ -83,6 +86,28 @@ export default function SettingsPage() {
     totalOutstanding: number;
   } | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Opening Credits state
+  const [ocDate, setOcDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [ocGridData, setOcGridData] = useState<Record<string, string>>({});
+  const [ocNotes, setOcNotes] = useState<Record<string, string>>({});
+  const [ocLoading, setOcLoading] = useState(false);
+  const [ocSaving, setOcSaving] = useState(false);
+  const [ocExisting, setOcExisting] = useState<any[]>([]);
+  const [ocExistingLoading, setOcExistingLoading] = useState(false);
+  const [ocExpandedRow, setOcExpandedRow] = useState<string | null>(null);
+
+  // Sales Targets state
+  const [stMonth, setStMonth] = useState(() => new Date().getMonth() + 1);
+  const [stYear, setStYear] = useState(() => new Date().getFullYear());
+  const [stGridData, setStGridData] = useState<Record<string, { ctns: string; tonnage: string; value: string }>>({});
+  const [stNotes, setStNotes] = useState<Record<string, string>>({});
+  const [stLoading, setStLoading] = useState(false);
+  const [stSaving, setStSaving] = useState(false);
+  const [stExisting, setStExisting] = useState<any[]>([]);
+  const [stExistingLoading, setStExistingLoading] = useState(false);
+  const [stExpandedRow, setStExpandedRow] = useState<string | null>(null);
+  const [stShowAchievement, setStShowAchievement] = useState(false);
 
   const fetchOBs = useCallback(async () => {
     setOBLoading(true);
@@ -476,6 +501,12 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="backup" className="gap-1.5 text-xs tab-indicator">
             <HardDrive className="w-3.5 h-3.5" /> Backup
+          </TabsTrigger>
+          <TabsTrigger value="openingCredits" className="gap-1.5 text-xs tab-indicator">
+            <Wallet className="w-3.5 h-3.5" /> Opening Credits
+          </TabsTrigger>
+          <TabsTrigger value="salesTargets" className="gap-1.5 text-xs tab-indicator">
+            <Target className="w-3.5 h-3.5" /> Sales Targets
           </TabsTrigger>
         </TabsList>
 
@@ -1118,6 +1149,16 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Opening Credits Tab */}
+        <TabsContent value="openingCredits" className="space-y-4 tab-content-animate">
+          <OpeningCreditsTab orderBookers={orderBookers} companies={companies} />
+        </TabsContent>
+
+        {/* Sales Targets Tab */}
+        <TabsContent value="salesTargets" className="space-y-4 tab-content-animate">
+          <SalesTargetsTab orderBookers={orderBookers} companies={companies} />
         </TabsContent>
       </Tabs>
 
